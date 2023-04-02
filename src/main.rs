@@ -26,6 +26,7 @@ fn main() {
         .register_type::<Settings>()
         .init_resource::<Settings>()
         .add_state::<AppState>()
+        .add_state::<GameState>()
         .add_loading_state(
             LoadingState::new(AppState::Loading).continue_to_state(AppState::TitleScreen),
         )
@@ -41,8 +42,17 @@ fn main() {
         .add_systems((adjust_rendering, start_button).in_set(OnUpdate(AppState::TitleScreen)))
         .add_system(cleanup::<TitleScreen>.in_schedule(OnExit(AppState::TitleScreen)))
         // In game
-        .add_systems((setup_pathfinding, setup_entities).in_schedule(OnEnter(AppState::InGame)))
-        .add_system(find_food.in_set(OnUpdate(AppState::InGame)))
+        .add_systems(
+            (setup_pathfinding, setup_entities, setup_hud).in_schedule(OnEnter(AppState::InGame)),
+        )
+        .add_system(experiment_button.in_set(OnUpdate(AppState::InGame)))
+        .add_system(cleanup::<HUD>.in_schedule(OnExit(AppState::InGame)))
+        // Experiment
+        .add_system(
+            find_cheese
+                .in_set(OnUpdate(AppState::InGame))
+                .in_set(OnUpdate(GameState::Experimenting)),
+        )
         .run();
 }
 
@@ -58,6 +68,13 @@ enum AppState {
     InGame,
 }
 
+#[derive(States, Clone, Hash, Eq, PartialEq, Debug, Default)]
+enum GameState {
+    #[default]
+    Planning,
+    Experimenting,
+}
+
 #[derive(AssetCollection, Resource)]
 struct MyAssets {
     #[asset(path = "temp-assets.gltf")]
@@ -69,6 +86,22 @@ struct MyFonts {
     #[asset(path = "fonts/Fira/ttf/FiraSans-Regular.ttf")]
     fira_sans_regular: Handle<Font>,
 }
+
+fn cleanup<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
+    for t in query.iter() {
+        commands.entity(t).despawn_recursive();
+    }
+}
+
+/************************************************************************************************/
+/*    ########  ########  ######## ##        #######     ###    ########  ######## ########     */
+/*    ##     ## ##     ## ##       ##       ##     ##   ## ##   ##     ## ##       ##     ##    */
+/*    ##     ## ##     ## ##       ##       ##     ##  ##   ##  ##     ## ##       ##     ##    */
+/*    ########  ########  ######   ##       ##     ## ##     ## ##     ## ######   ########     */
+/*    ##        ##   ##   ##       ##       ##     ## ######### ##     ## ##       ##   ##      */
+/*    ##        ##    ##  ##       ##       ##     ## ##     ## ##     ## ##       ##    ##     */
+/*    ##        ##     ## ######## ########  #######  ##     ## ########  ######## ##     ##    */
+/************************************************************************************************/
 
 #[derive(Component)]
 struct PreloaderPoint(usize);
@@ -127,6 +160,9 @@ fn setup_preloader(
 
 #[derive(Component)]
 struct TitleScreen;
+
+#[derive(Component)]
+struct StartButton;
 
 fn setup_title_screen(
     mut commands: Commands,
@@ -265,15 +301,6 @@ fn adjust_rendering(
     }
 }
 
-fn cleanup<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
-    for t in query.iter() {
-        commands.entity(t).despawn_recursive();
-    }
-}
-
-#[derive(Component)]
-struct StartButton;
-
 fn start_button(
     interaction_query: Query<&Interaction, (Changed<Interaction>, With<StartButton>)>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -281,6 +308,125 @@ fn start_button(
     for interaction in interaction_query.iter() {
         match interaction {
             Interaction::Clicked => next_state.set(AppState::InGame),
+            Interaction::Hovered => {}
+            Interaction::None => {}
+        }
+    }
+}
+
+/***************************************/
+/*    ##     ## ##     ## ########     */
+/*    ##     ## ##     ## ##     ##    */
+/*    ##     ## ##     ## ##     ##    */
+/*    ######### ##     ## ##     ##    */
+/*    ##     ## ##     ## ##     ##    */
+/*    ##     ## ##     ## ##     ##    */
+/*    ##     ##  #######  ########     */
+/***************************************/
+
+#[derive(Component)]
+struct HUD;
+
+#[derive(Component)]
+struct ExperimentButton(ExperimentAction);
+
+enum ExperimentAction {
+    Conduct,
+    Finish,
+}
+#[derive(Component)]
+struct ExperimentButtonCaption;
+
+fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>) {
+    commands
+        .spawn((
+            HUD,
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    position: UiRect {
+                        bottom: Val::Percent(0.),
+                        left: Val::Auto,
+                        right: Val::Auto,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ))
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    ExperimentButton(ExperimentAction::Conduct),
+                    ButtonBundle {
+                        background_color: Color::GRAY.into(),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        ExperimentButtonCaption,
+                        TextBundle::from_section(
+                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                            "Conduct experiment",
+                            TextStyle {
+                                font: fonts.fira_sans_regular.clone_weak(),
+                                font_size: 30.0,
+                                color: Color::BLACK,
+                            },
+                        ) // Set the alignment of the Text
+                        .with_text_alignment(TextAlignment::Center),
+                    ));
+                });
+
+            parent
+                .spawn((
+                    ExperimentButton(ExperimentAction::Finish),
+                    ButtonBundle {
+                        background_color: Color::GRAY.into(),
+                        visibility: Visibility::Hidden,
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        ExperimentButtonCaption,
+                        TextBundle::from_section(
+                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                            "Finish experiment",
+                            TextStyle {
+                                font: fonts.fira_sans_regular.clone_weak(),
+                                font_size: 30.0,
+                                color: Color::BLACK,
+                            },
+                        )
+                        .with_text_alignment(TextAlignment::Center),
+                    ));
+                });
+        });
+}
+
+fn experiment_button(
+    mut interaction_query: Query<(Entity, &ExperimentButton, &Interaction), Changed<Interaction>>,
+    mut buttons: Query<(Entity, &mut Visibility), With<ExperimentButton>>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    for (this, button, interaction) in interaction_query.iter_mut() {
+        match interaction {
+            Interaction::Clicked => {
+                for (entity, mut visibility) in buttons.iter_mut() {
+                    *visibility = if entity == this {
+                        Visibility::Hidden
+                    } else {
+                        Visibility::Visible
+                    }
+                }
+                match button.0 {
+                    ExperimentAction::Conduct => next_state.set(GameState::Experimenting),
+                    ExperimentAction::Finish => next_state.set(GameState::Planning),
+                }
+            }
             Interaction::Hovered => {}
             Interaction::None => {}
         }
@@ -369,13 +515,13 @@ impl Default for Rat {
     fn default() -> Self {
         Rat {
             appetite: 1,
-            smell: 1,
+            smell: 2,
         }
     }
 }
 
 #[derive(Component)]
-struct Food;
+struct Cheese;
 
 fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>) {
     for (entity, name) in named_entities.iter() {
@@ -397,8 +543,8 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>
                 .add_child(collider);
         }
 
-        if name.starts_with("food") {
-            commands.entity(entity).insert(Food);
+        if name.starts_with("cheese") {
+            commands.entity(entity).insert(Cheese);
         }
 
         if name.starts_with("tile") {
@@ -411,34 +557,37 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>
     }
 }
 
-fn find_food(
+fn find_cheese(
     mut commands: Commands,
     mut rats: Query<(Entity, &Rat, &mut Transform)>,
-    foods: Query<&Transform, (With<Food>, Without<Rat>)>,
+    cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
     pathfinding: Res<PathfindingMatrix>,
 ) {
     for (rat_entity, rat, mut rat_transform) in rats.iter_mut() {
         if rat.appetite > 0 {
-            /************************************************/
-            /*    ########  #######   #######  ########     */
-            /*    ##       ##     ## ##     ## ##     ##    */
-            /*    ##       ##     ## ##     ## ##     ##    */
-            /*    ######   ##     ## ##     ## ##     ##    */
-            /*    ##       ##     ## ##     ## ##     ##    */
-            /*    ##       ##     ## ##     ## ##     ##    */
-            /*    ##        #######   #######  ########     */
-            /************************************************/
+            /****************************************************************/
+            /*     ######  ##     ## ######## ########  ######  ########    */
+            /*    ##    ## ##     ## ##       ##       ##    ## ##          */
+            /*    ##       ##     ## ##       ##       ##       ##          */
+            /*    ##       ######### ######   ######    ######  ######      */
+            /*    ##       ##     ## ##       ##             ## ##          */
+            /*    ##    ## ##     ## ##       ##       ##    ## ##          */
+            /*     ######  ##     ## ######## ########  ######  ########    */
+            /****************************************************************/
             let smell_distance = 5.0 * rat.smell as f32;
             // @TODO: if appetite is especially high, rat starts actively looking for food, even if can't smell it
-            let mut paths = foods
+            let mut paths = cheese
                 .iter()
-                .filter_map(|food| {
+                .filter_map(|cheese| {
                     let start = pathfinding.grid_coord(rat_transform.translation);
-                    let goal = pathfinding.grid_coord(food.translation);
+                    let goal = pathfinding.grid_coord(cheese.translation);
+                    dbg!(&start);
+                    dbg!(&goal);
 
-                    let distance = rat_transform.translation.distance(food.translation);
+                    let distance = rat_transform.translation.distance(cheese.translation);
                     if distance < smell_distance {
                         let smell_intencity = (smell_distance - distance).round() as i32;
+                        dbg!(smell_intencity);
                         astar(
                             &start,
                             |p| {
@@ -458,7 +607,7 @@ fn find_food(
                     }
                 })
                 .collect::<Vec<_>>();
-
+            dbg!(&paths);
             paths.sort_by_key(|(_, smell_intencity)| -*smell_intencity);
 
             if let Some((path, _smell_intencity)) = paths.first() {
