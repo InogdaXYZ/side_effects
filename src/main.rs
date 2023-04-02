@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
+
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::{prelude::*, quick::ResourceInspectorPlugin};
