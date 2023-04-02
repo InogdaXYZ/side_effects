@@ -25,7 +25,7 @@ fn main() {
             (cleanup::<Camera>, cleanup::<PreloaderPoint>).in_schedule(OnExit(AppState::Loading)),
         )
         .add_system(setup_title_screen.in_schedule(OnEnter(AppState::TitleScreen)))
-        .add_system(update_camera.in_set(OnUpdate(AppState::TitleScreen)))
+        .add_system(adjust_rendering.in_set(OnUpdate(AppState::TitleScreen)))
         .run();
 }
 
@@ -167,13 +167,46 @@ fn setup_title_screen(
                 ) // Set the alignment of the Text
                 .with_text_alignment(TextAlignment::Center),
             );
+
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        justify_content: JustifyContent::Center,
+                        padding: UiRect::all(Val::Px(20.)),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn(ButtonBundle {
+                            background_color: Color::GRAY.into(),
+                            ..Default::default()
+                        })
+                        .with_children(|parent| {
+                            parent.spawn(
+                                // Create a TextBundle that has a Text with a single section.
+                                TextBundle::from_section(
+                                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                                    "Start",
+                                    TextStyle {
+                                        font: fonts.fira_sans_regular.clone_weak(),
+                                        font_size: 30.0,
+                                        color: Color::BLACK,
+                                    },
+                                ) // Set the alignment of the Text
+                                .with_text_alignment(TextAlignment::Center),
+                            );
+                        });
+                });
         });
 }
 
-fn update_camera(
+fn adjust_rendering(
     mut cameras: Query<&mut Projection, Added<Camera3d>>,
     mut point_lights: Query<&mut PointLight, Added<PointLight>>,
     mut spot_lights: Query<&mut SpotLight, Added<SpotLight>>,
+    mut directional_lights: Query<&mut DirectionalLight, Added<DirectionalLight>>,
 ) {
     for mut projection in cameras.iter_mut() {
         if let Projection::Orthographic(orthographic_projection) = projection.as_mut() {
@@ -182,12 +215,17 @@ fn update_camera(
         }
     }
 
+    let k = 683.; // don't ask me why
     for mut point_light in point_lights.iter_mut() {
-        point_light.intensity = point_light.intensity / 1000.;
+        point_light.intensity = point_light.intensity / k;
     }
 
     for mut spot_light in spot_lights.iter_mut() {
-        spot_light.intensity = spot_light.intensity / 1000.;
+        spot_light.intensity = spot_light.intensity / k;
+    }
+
+    for mut directional_light in directional_lights.iter_mut() {
+        directional_light.illuminance = directional_light.illuminance * 6.28;
     }
 }
 
