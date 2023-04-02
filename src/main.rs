@@ -31,7 +31,7 @@ fn main() {
         .add_systems((adjust_rendering, start_button).in_set(OnUpdate(AppState::TitleScreen)))
         .add_system(cleanup::<TitleScreen>.in_schedule(OnExit(AppState::TitleScreen)))
         // In game
-        .add_system(setup_pathfinding.in_schedule(OnEnter(AppState::InGame)))
+        .add_systems((setup_pathfinding, setup_entities).in_schedule(OnEnter(AppState::InGame)))
         .run();
 }
 
@@ -305,6 +305,24 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
                 min_x: *min_x,
                 min_y: *min_y,
             });
+        }
+    }
+}
+
+#[derive(Component)]
+struct Rat;
+
+#[derive(Component)]
+struct Food;
+
+fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>) {
+    for (entity, name) in named_entities.iter() {
+        if name.starts_with("rat") {
+            commands.entity(entity).insert(Rat);
+        }
+
+        if name.starts_with("food") {
+            commands.entity(entity).insert(Food);
         }
     }
 }
