@@ -1,8 +1,8 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
-use bevy::prelude::*;
+use bevy::{gltf::Gltf, prelude::*, render::camera::ScalingMode};
 use bevy_asset_loader::prelude::*;
-use bevy_inspector_egui::{prelude::*, quick::ResourceInspectorPlugin};
+use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
 
 fn main() {
     App::new()
@@ -11,9 +11,9 @@ fn main() {
             watch_for_changes: true,
             ..Default::default()
         }))
+        .add_plugin(WorldInspectorPlugin::default())
         .register_type::<Settings>()
         .init_resource::<Settings>()
-        .add_plugin(ResourceInspectorPlugin::<Settings>::default())
         .add_state::<AppState>()
         .add_loading_state(
             LoadingState::new(AppState::Loading).continue_to_state(AppState::TitleScreen),
@@ -25,6 +25,7 @@ fn main() {
             (cleanup::<Camera>, cleanup::<PreloaderPoint>).in_schedule(OnExit(AppState::Loading)),
         )
         .add_system(setup_title_screen.in_schedule(OnEnter(AppState::TitleScreen)))
+        .add_system(update_camera.in_set(OnUpdate(AppState::TitleScreen)))
         .run();
 }
 
@@ -41,7 +42,10 @@ enum AppState {
 }
 
 #[derive(AssetCollection, Resource)]
-struct MyAssets {}
+struct MyAssets {
+    #[asset(path = "temp-assets.gltf")]
+    main_gltf: Handle<Gltf>,
+}
 
 #[derive(AssetCollection, Resource)]
 struct MyFonts {
@@ -94,35 +98,100 @@ fn setup_preloader(
     ));
 }
 
-fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
-    commands.spawn(Camera2dBundle::default());
+fn setup_title_screen(
+    mut commands: Commands,
+    fonts: Res<MyFonts>,
+    my: Res<MyAssets>,
+    assets_gltf: Res<Assets<Gltf>>,
+) {
+    if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+        commands.spawn(SceneBundle {
+            scene: gltf.scenes[0].clone(),
+            ..Default::default()
+        });
+    }
 
-    commands.spawn(
-        // Create a TextBundle that has a Text with a single section.
-        TextBundle::from_section(
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-            "Side effects",
-            TextStyle {
-                font: fonts.fira_sans_regular.clone_weak(),
-                font_size: 100.0,
-                color: Color::BLACK,
-            },
-        ) // Set the alignment of the Text
-        .with_text_alignment(TextAlignment::Center)
-        // Set the style of the TextBundle itself.
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Percent(50.0),
-                right: Val::Px(50.0),
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    bottom: Val::Percent(50.0),
+                    right: Val::Px(50.0),
+                    ..default()
+                },
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
-            ..default()
-        }),
-    );
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            parent.spawn(
+                // Create a TextBundle that has a Text with a single section.
+                TextBundle::from_section(
+                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                    "Side effects",
+                    TextStyle {
+                        font: fonts.fira_sans_regular.clone_weak(),
+                        font_size: 100.0,
+                        color: Color::BLACK,
+                    },
+                ) // Set the alignment of the Text
+                .with_text_alignment(TextAlignment::Center),
+            );
+
+            parent.spawn(
+                // Create a TextBundle that has a Text with a single section.
+                TextBundle::from_section(
+                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                    "by Roman and Christina",
+                    TextStyle {
+                        font: fonts.fira_sans_regular.clone_weak(),
+                        font_size: 30.0,
+                        color: Color::BLACK,
+                    },
+                ) // Set the alignment of the Text
+                .with_text_alignment(TextAlignment::Center),
+            );
+
+            parent.spawn(
+                // Create a TextBundle that has a Text with a single section.
+                TextBundle::from_section(
+                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                    "built with Bevy engine; fonts from Mozilla",
+                    TextStyle {
+                        font: fonts.fira_sans_regular.clone_weak(),
+                        font_size: 20.0,
+                        color: Color::BLACK,
+                    },
+                ) // Set the alignment of the Text
+                .with_text_alignment(TextAlignment::Center),
+            );
+        });
 }
 
-pub fn cleanup<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
+fn update_camera(
+    mut cameras: Query<&mut Projection, Added<Camera3d>>,
+    mut point_lights: Query<&mut PointLight, Added<PointLight>>,
+    mut spot_lights: Query<&mut SpotLight, Added<SpotLight>>,
+) {
+    for mut projection in cameras.iter_mut() {
+        if let Projection::Orthographic(orthographic_projection) = projection.as_mut() {
+            orthographic_projection.scaling_mode = ScalingMode::WindowSize(100.0);
+            orthographic_projection.scale = 1.0;
+        }
+    }
+
+    for mut point_light in point_lights.iter_mut() {
+        point_light.intensity = point_light.intensity / 1000.;
+    }
+
+    for mut spot_light in spot_lights.iter_mut() {
+        spot_light.intensity = spot_light.intensity / 1000.;
+    }
+}
+
+fn cleanup<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
     for t in query.iter() {
         commands.entity(t).despawn_recursive();
     }
