@@ -32,6 +32,7 @@ fn main() {
         .add_system(cleanup::<TitleScreen>.in_schedule(OnExit(AppState::TitleScreen)))
         // In game
         .add_systems((setup_pathfinding, setup_entities).in_schedule(OnEnter(AppState::InGame)))
+        .add_system(find_food.in_set(OnUpdate(AppState::InGame)))
         .run();
 }
 
@@ -273,6 +274,15 @@ struct PathfindingMatrix {
     min_y: i32,
 }
 
+impl PathfindingMatrix {
+    fn grid_coord(&self, translation: Vec2) -> (usize, usize) {
+        (
+            (translation.x.floor() as i32 - self.min_x) as usize,
+            (translation.y.floor() as i32 - self.min_y) as usize,
+        )
+    }
+}
+
 fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Transform)>) {
     let tile_coords: Vec<(i32, i32)> = named_entities
         .iter()
@@ -323,6 +333,33 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>
 
         if name.starts_with("food") {
             commands.entity(entity).insert(Food);
+        }
+    }
+}
+
+fn find_food(
+    rats: Query<&Transform, With<Rat>>,
+    foods: Query<&Transform, With<Food>>,
+    pathfinding: Res<PathfindingMatrix>,
+) {
+    for rat in rats.iter() {
+        for food in foods.iter() {
+            let start = pathfinding.grid_coord(rat.translation.truncate());
+            let goal = pathfinding.grid_coord(food.translation.truncate());
+            let path = astar(
+                &start,
+                |p| {
+                    pathfinding
+                        .grid
+                        .neighbours(*p)
+                        .into_iter()
+                        .map(|p| (p, 1))
+                        .collect::<Vec<_>>()
+                },
+                |p| pathfinding.grid.distance(*p, goal) / 3,
+                |p| *p == goal,
+            );
+            // dbg!(&path);
         }
     }
 }
