@@ -275,10 +275,10 @@ struct PathfindingMatrix {
 }
 
 impl PathfindingMatrix {
-    fn grid_coord(&self, translation: Vec2) -> (usize, usize) {
+    fn grid_coord(&self, translation: Vec3) -> (usize, usize) {
         (
             (translation.x.floor() as i32 - self.min_x) as usize,
-            (translation.y.floor() as i32 - self.min_y) as usize,
+            (translation.z.floor() as i32 - self.min_y) as usize,
         )
     }
 }
@@ -344,8 +344,8 @@ fn find_food(
 ) {
     for rat in rats.iter() {
         for food in foods.iter() {
-            let start = pathfinding.grid_coord(rat.translation.truncate());
-            let goal = pathfinding.grid_coord(food.translation.truncate());
+            let start = pathfinding.grid_coord(rat.translation);
+            let goal = pathfinding.grid_coord(food.translation);
             let path = astar(
                 &start,
                 |p| {
@@ -359,7 +359,6 @@ fn find_food(
                 |p| pathfinding.grid.distance(*p, goal) / 3,
                 |p| *p == goal,
             );
-            // dbg!(&path);
         }
     }
 }
