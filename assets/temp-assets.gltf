@@ -4,7 +4,8 @@
 		"version":"2.0"
 	},
 	"extensionsUsed":[
-		"KHR_lights_punctual"
+		"KHR_lights_punctual",
+		"KHR_materials_unlit"
 	],
 	"extensionsRequired":[
 		"KHR_lights_punctual"
@@ -259,10 +260,10 @@
 		},
 		{
 			"mesh":14,
-			"name":"rat.001",
+			"name":"rat",
 			"translation":[
 				0.5,
-				0.10000000149011612,
+				0.08999999612569809,
 				-0.5
 			]
 		}
@@ -292,6 +293,17 @@
 				],
 				"metallicFactor":0,
 				"roughnessFactor":0.5
+			}
+		},
+		{
+			"doubleSided":true,
+			"extensions":{
+				"KHR_materials_unlit":{}
+			},
+			"name":"rat-fur",
+			"pbrMetallicRoughness":{
+				"metallicFactor":0,
+				"roughnessFactor":0.9
 			}
 		}
 	],
@@ -504,7 +516,7 @@
 			]
 		},
 		{
-			"name":"Cube.014",
+			"name":"Cube.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -512,7 +524,8 @@
 						"TEXCOORD_0":61,
 						"NORMAL":62
 					},
-					"indices":63
+					"indices":63,
+					"material":1
 				}
 			]
 		}
