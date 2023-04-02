@@ -3,6 +3,7 @@
 use bevy::{gltf::Gltf, prelude::*, render::camera::ScalingMode};
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
+use pathfinding::prelude::*;
 
 fn main() {
     App::new()
@@ -20,12 +21,17 @@ fn main() {
         )
         .add_collection_to_loading_state::<_, MyAssets>(AppState::Loading)
         .add_collection_to_loading_state::<_, MyFonts>(AppState::Loading)
+        // Loading
         .add_system(setup_preloader.in_schedule(OnEnter(AppState::Loading)))
         .add_systems(
             (cleanup::<Camera>, cleanup::<PreloaderPoint>).in_schedule(OnExit(AppState::Loading)),
         )
+        // Title screen
         .add_system(setup_title_screen.in_schedule(OnEnter(AppState::TitleScreen)))
-        .add_system(adjust_rendering.in_set(OnUpdate(AppState::TitleScreen)))
+        .add_systems((adjust_rendering, start_button).in_set(OnUpdate(AppState::TitleScreen)))
+        .add_system(cleanup::<TitleScreen>.in_schedule(OnExit(AppState::TitleScreen)))
+        // In game
+        .add_system(setup_pathfinding.in_schedule(OnEnter(AppState::InGame)))
         .run();
 }
 
@@ -98,6 +104,9 @@ fn setup_preloader(
     ));
 }
 
+#[derive(Component)]
+struct TitleScreen;
+
 fn setup_title_screen(
     mut commands: Commands,
     fonts: Res<MyFonts>,
@@ -112,19 +121,22 @@ fn setup_title_screen(
     }
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    bottom: Val::Percent(50.0),
-                    right: Val::Px(50.0),
+        .spawn((
+            TitleScreen,
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    position: UiRect {
+                        bottom: Val::Percent(50.0),
+                        right: Val::Px(50.0),
+                        ..default()
+                    },
+                    flex_direction: FlexDirection::Column,
                     ..default()
                 },
-                flex_direction: FlexDirection::Column,
-                ..default()
+                ..Default::default()
             },
-            ..Default::default()
-        })
+        ))
         .with_children(|parent| {
             parent.spawn(
                 // Create a TextBundle that has a Text with a single section.
@@ -179,10 +191,13 @@ fn setup_title_screen(
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn(ButtonBundle {
-                            background_color: Color::GRAY.into(),
-                            ..Default::default()
-                        })
+                        .spawn((
+                            StartButton,
+                            ButtonBundle {
+                                background_color: Color::GRAY.into(),
+                                ..Default::default()
+                            },
+                        ))
                         .with_children(|parent| {
                             parent.spawn(
                                 // Create a TextBundle that has a Text with a single section.
@@ -232,5 +247,64 @@ fn adjust_rendering(
 fn cleanup<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
     for t in query.iter() {
         commands.entity(t).despawn_recursive();
+    }
+}
+
+#[derive(Component)]
+struct StartButton;
+
+fn start_button(
+    interaction_query: Query<&Interaction, (Changed<Interaction>, With<StartButton>)>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    for interaction in interaction_query.iter() {
+        match interaction {
+            Interaction::Clicked => next_state.set(AppState::InGame),
+            Interaction::Hovered => {}
+            Interaction::None => {}
+        }
+    }
+}
+
+#[derive(Debug, Resource)]
+struct PathfindingMatrix {
+    grid: Grid,
+    min_x: i32,
+    min_y: i32,
+}
+
+fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Transform)>) {
+    let tile_coords: Vec<(i32, i32)> = named_entities
+        .iter()
+        .filter_map(|(name, transform)| {
+            if name.starts_with("tile") {
+                Some(transform)
+            } else {
+                None
+            }
+        })
+        .map(|transform| {
+            (
+                transform.translation.x.floor() as i32,
+                transform.translation.z.floor() as i32,
+            )
+        })
+        .collect::<_>();
+
+    let xs = tile_coords.iter().map(|(x, _)| x);
+    let ys = tile_coords.iter().map(|(_, y)| y);
+    let min_x = xs.min();
+    let min_y = ys.min();
+
+    if let (Some(min_x), Some(min_y)) = (min_x, min_y) {
+        let grid = Grid::from_coordinates(&tile_coords);
+        dbg!(&grid);
+        if let Some(grid) = grid {
+            commands.insert_resource(PathfindingMatrix {
+                grid,
+                min_x: *min_x,
+                min_y: *min_y,
+            });
+        }
     }
 }
