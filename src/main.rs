@@ -115,6 +115,16 @@ fn setup_preloader(
     ));
 }
 
+/************************************************************************************************************/
+/*    ######## #### ######## ##       ########     ######   ######  ########  ######## ######## ##    ##    */
+/*       ##     ##     ##    ##       ##          ##    ## ##    ## ##     ## ##       ##       ###   ##    */
+/*       ##     ##     ##    ##       ##          ##       ##       ##     ## ##       ##       ####  ##    */
+/*       ##     ##     ##    ##       ######       ######  ##       ########  ######   ######   ## ## ##    */
+/*       ##     ##     ##    ##       ##                ## ##       ##   ##   ##       ##       ##  ####    */
+/*       ##     ##     ##    ##       ##          ##    ## ##    ## ##    ##  ##       ##       ##   ###    */
+/*       ##    ####    ##    ######## ########     ######   ######  ##     ## ######## ######## ##    ##    */
+/************************************************************************************************************/
+
 #[derive(Component)]
 struct TitleScreen;
 
@@ -277,6 +287,16 @@ fn start_button(
     }
 }
 
+/*********************************************************************************************************/
+/*    ########     ###    ######## ##     ## ######## #### ##    ## ########  #### ##    ##  ######      */
+/*    ##     ##   ## ##      ##    ##     ## ##        ##  ###   ## ##     ##  ##  ###   ## ##    ##     */
+/*    ##     ##  ##   ##     ##    ##     ## ##        ##  ####  ## ##     ##  ##  ####  ## ##           */
+/*    ########  ##     ##    ##    ######### ######    ##  ## ## ## ##     ##  ##  ## ## ## ##   ####    */
+/*    ##        #########    ##    ##     ## ##        ##  ##  #### ##     ##  ##  ##  #### ##    ##     */
+/*    ##        ##     ##    ##    ##     ## ##        ##  ##   ### ##     ##  ##  ##   ### ##    ##     */
+/*    ##        ##     ##    ##    ##     ## ##       #### ##    ## ########  #### ##    ##  ######      */
+/*********************************************************************************************************/
+
 #[derive(Debug, Resource)]
 struct PathfindingMatrix {
     grid: Grid,
@@ -329,8 +349,30 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
     }
 }
 
+/**************************************/
+/*    ########     ###    ########    */
+/*    ##     ##   ## ##      ##       */
+/*    ##     ##  ##   ##     ##       */
+/*    ########  ##     ##    ##       */
+/*    ##   ##   #########    ##       */
+/*    ##    ##  ##     ##    ##       */
+/*    ##     ## ##     ##    ##       */
+/**************************************/
+
 #[derive(Component)]
-struct Rat;
+struct Rat {
+    appetite: i32,
+    smell: i32,
+}
+
+impl Default for Rat {
+    fn default() -> Self {
+        Rat {
+            appetite: 1,
+            smell: 1,
+        }
+    }
+}
 
 #[derive(Component)]
 struct Food;
@@ -348,7 +390,7 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>
             commands
                 .entity(entity)
                 .insert((
-                    Rat,
+                    Rat::default(),
                     RigidBody::Dynamic,
                     KinematicCharacterController::default(),
                 ))
@@ -360,7 +402,6 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>
         }
 
         if name.starts_with("tile") {
-            // 0.13
             let collider = commands.spawn((Collider::cuboid(0.5, 0.065, 0.5),)).id();
             commands
                 .entity(entity)
@@ -372,55 +413,76 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>
 
 fn find_food(
     mut commands: Commands,
-    mut rats: Query<(Entity, &mut Transform), With<Rat>>,
+    mut rats: Query<(Entity, &Rat, &mut Transform)>,
     foods: Query<&Transform, (With<Food>, Without<Rat>)>,
     pathfinding: Res<PathfindingMatrix>,
 ) {
-    for (rat, mut rat_transform) in rats.iter_mut() {
-        let mut paths = foods
-            .iter()
-            .filter_map(|food| {
-                let start = pathfinding.grid_coord(rat_transform.translation);
-                let goal = pathfinding.grid_coord(food.translation);
-                astar(
-                    &start,
-                    |p| {
-                        pathfinding
-                            .grid
-                            .neighbours(*p)
-                            .into_iter()
-                            .map(|p| (p, 1))
-                            .collect::<Vec<_>>()
-                    },
-                    |p| pathfinding.grid.distance(*p, goal) / 3,
-                    |p| *p == goal,
-                )
-            })
-            .collect::<Vec<_>>();
+    for (rat_entity, rat, mut rat_transform) in rats.iter_mut() {
+        if rat.appetite > 0 {
+            /************************************************/
+            /*    ########  #######   #######  ########     */
+            /*    ##       ##     ## ##     ## ##     ##    */
+            /*    ##       ##     ## ##     ## ##     ##    */
+            /*    ######   ##     ## ##     ## ##     ##    */
+            /*    ##       ##     ## ##     ## ##     ##    */
+            /*    ##       ##     ## ##     ## ##     ##    */
+            /*    ##        #######   #######  ########     */
+            /************************************************/
+            let smell_distance = 5.0 * rat.smell as f32;
+            // @TODO: if appetite is especially high, rat starts actively looking for food, even if can't smell it
+            let mut paths = foods
+                .iter()
+                .filter_map(|food| {
+                    let start = pathfinding.grid_coord(rat_transform.translation);
+                    let goal = pathfinding.grid_coord(food.translation);
 
-        paths.sort_by_key(|(_, cost)| *cost);
+                    let distance = rat_transform.translation.distance(food.translation);
+                    if distance < smell_distance {
+                        let smell_intencity = (smell_distance - distance).round() as i32;
+                        astar(
+                            &start,
+                            |p| {
+                                pathfinding
+                                    .grid
+                                    .neighbours(*p)
+                                    .into_iter()
+                                    .map(|p| (p, 1))
+                                    .collect::<Vec<_>>()
+                            },
+                            |p| pathfinding.grid.distance(*p, goal) / 3,
+                            |p| *p == goal,
+                        )
+                        .map(|(path, _cost)| (path, smell_intencity))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
 
-        if let Some((path, _cost)) = paths.first() {
-            if let &[first, second, ..] = path.as_slice() {
-                let speed = 2.0;
-                let linvel = Vec3::new(
-                    second.0 as f32 - first.0 as f32,
-                    0.0,
-                    second.1 as f32 - first.1 as f32,
-                )
-                .normalize_or_zero()
-                    * speed;
-                dbg!(linvel);
-                rat_transform.look_to(linvel, Vec3::Y);
-                commands.entity(rat).insert(Velocity {
-                    linvel,
-                    ..Default::default()
-                });
-                continue;
+            paths.sort_by_key(|(_, smell_intencity)| -*smell_intencity);
+
+            if let Some((path, _smell_intencity)) = paths.first() {
+                if let &[first, second, ..] = path.as_slice() {
+                    let speed = 2.0;
+                    let linvel = Vec3::new(
+                        second.0 as f32 - first.0 as f32,
+                        0.0,
+                        second.1 as f32 - first.1 as f32,
+                    )
+                    .normalize_or_zero()
+                        * speed;
+                    dbg!(linvel);
+                    rat_transform.look_to(linvel, Vec3::Y);
+                    commands.entity(rat_entity).insert(Velocity {
+                        linvel,
+                        ..Default::default()
+                    });
+                    continue;
+                }
             }
         }
 
         // Stop
-        commands.entity(rat).remove::<Velocity>();
+        commands.entity(rat_entity).remove::<Velocity>();
     }
 }
