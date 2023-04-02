@@ -1,8 +1,11 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+use std::f32::consts::TAU;
+
 use bevy::{gltf::Gltf, prelude::*, render::camera::ScalingMode};
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
+use bevy_rapier3d::prelude::*;
 use pathfinding::prelude::*;
 
 fn main() {
@@ -13,6 +16,13 @@ fn main() {
             ..Default::default()
         }))
         .add_plugin(WorldInspectorPlugin::default())
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+        .add_plugin(RapierDebugRenderPlugin {
+            always_on_top: true,
+            enabled: true,
+
+            ..Default::default()
+        })
         .register_type::<Settings>()
         .init_resource::<Settings>()
         .add_state::<AppState>()
@@ -233,15 +243,15 @@ fn adjust_rendering(
 
     let k = 683.; // don't ask me why
     for mut point_light in point_lights.iter_mut() {
-        point_light.intensity = point_light.intensity / k;
+        point_light.intensity /= k;
     }
 
     for mut spot_light in spot_lights.iter_mut() {
-        spot_light.intensity = spot_light.intensity / k;
+        spot_light.intensity /= k;
     }
 
     for mut directional_light in directional_lights.iter_mut() {
-        directional_light.illuminance = directional_light.illuminance * 6.28;
+        directional_light.illuminance *= TAU;
     }
 }
 
@@ -328,37 +338,89 @@ struct Food;
 fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>) {
     for (entity, name) in named_entities.iter() {
         if name.starts_with("rat") {
-            commands.entity(entity).insert(Rat);
+            // 0.5 x 0.2 x 0.1
+            let collider = commands
+                .spawn((
+                    Collider::cuboid(0.25, 0.1, 0.25),
+                    TransformBundle::from_transform(Transform::from_xyz(0., 0.1, 0.)),
+                ))
+                .id();
+            commands
+                .entity(entity)
+                .insert((
+                    Rat,
+                    RigidBody::Dynamic,
+                    KinematicCharacterController::default(),
+                ))
+                .add_child(collider);
         }
 
         if name.starts_with("food") {
             commands.entity(entity).insert(Food);
         }
+
+        if name.starts_with("tile") {
+            // 0.13
+            let collider = commands.spawn((Collider::cuboid(0.5, 0.065, 0.5),)).id();
+            commands
+                .entity(entity)
+                .insert(RigidBody::Fixed)
+                .add_child(collider);
+        }
     }
 }
 
 fn find_food(
-    rats: Query<&Transform, With<Rat>>,
-    foods: Query<&Transform, With<Food>>,
+    mut commands: Commands,
+    mut rats: Query<(Entity, &mut Transform), With<Rat>>,
+    foods: Query<&Transform, (With<Food>, Without<Rat>)>,
     pathfinding: Res<PathfindingMatrix>,
 ) {
-    for rat in rats.iter() {
-        for food in foods.iter() {
-            let start = pathfinding.grid_coord(rat.translation);
-            let goal = pathfinding.grid_coord(food.translation);
-            let path = astar(
-                &start,
-                |p| {
-                    pathfinding
-                        .grid
-                        .neighbours(*p)
-                        .into_iter()
-                        .map(|p| (p, 1))
-                        .collect::<Vec<_>>()
-                },
-                |p| pathfinding.grid.distance(*p, goal) / 3,
-                |p| *p == goal,
-            );
+    for (rat, mut rat_transform) in rats.iter_mut() {
+        let mut paths = foods
+            .iter()
+            .filter_map(|food| {
+                let start = pathfinding.grid_coord(rat_transform.translation);
+                let goal = pathfinding.grid_coord(food.translation);
+                astar(
+                    &start,
+                    |p| {
+                        pathfinding
+                            .grid
+                            .neighbours(*p)
+                            .into_iter()
+                            .map(|p| (p, 1))
+                            .collect::<Vec<_>>()
+                    },
+                    |p| pathfinding.grid.distance(*p, goal) / 3,
+                    |p| *p == goal,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        paths.sort_by_key(|(_, cost)| *cost);
+
+        if let Some((path, _cost)) = paths.first() {
+            if let &[first, second, ..] = path.as_slice() {
+                let speed = 2.0;
+                let linvel = Vec3::new(
+                    second.0 as f32 - first.0 as f32,
+                    0.0,
+                    second.1 as f32 - first.1 as f32,
+                )
+                .normalize_or_zero()
+                    * speed;
+                dbg!(linvel);
+                rat_transform.look_to(linvel, Vec3::Y);
+                commands.entity(rat).insert(Velocity {
+                    linvel,
+                    ..Default::default()
+                });
+                continue;
+            }
         }
+
+        // Stop
+        commands.entity(rat).remove::<Velocity>();
     }
 }
