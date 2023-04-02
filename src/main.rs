@@ -2,7 +2,7 @@
 
 use std::f32::consts::TAU;
 
-use bevy::{gltf::Gltf, prelude::*, render::camera::ScalingMode};
+use bevy::{gltf::Gltf, prelude::*, render::camera::ScalingMode, scene::SceneInstance};
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
 use bevy_rapier3d::prelude::*;
@@ -38,16 +38,28 @@ fn main() {
             (cleanup::<Camera>, cleanup::<PreloaderPoint>).in_schedule(OnExit(AppState::Loading)),
         )
         // Title screen
-        .add_system(setup_title_screen.in_schedule(OnEnter(AppState::TitleScreen)))
-        .add_systems((adjust_rendering, start_button).in_set(OnUpdate(AppState::TitleScreen)))
+        .add_systems(
+            (spawn_scene, setup_title_screen)
+                .chain()
+                .in_schedule(OnEnter(AppState::TitleScreen)),
+        )
+        .add_system(start_button.in_set(OnUpdate(AppState::TitleScreen)))
         .add_system(cleanup::<TitleScreen>.in_schedule(OnExit(AppState::TitleScreen)))
         // In game
-        .add_systems(
-            (setup_pathfinding, setup_entities, setup_hud).in_schedule(OnEnter(AppState::InGame)),
-        )
+        .add_system(setup_hud.in_schedule(OnEnter(AppState::InGame)))
         .add_system(experiment_button.in_set(OnUpdate(AppState::InGame)))
         .add_system(cleanup::<HUD>.in_schedule(OnExit(AppState::InGame)))
-        // Experiment
+        // Planning experiment
+        .add_systems(
+            (cleanup::<SceneInstance>, spawn_scene)
+                .chain()
+                .in_schedule(OnEnter(GameState::Planning)),
+        )
+        .add_system(adjust_rendering.in_set(OnUpdate(GameState::Planning)))
+        // Conducting experiment
+        .add_systems(
+            (setup_pathfinding, setup_entities).in_schedule(OnEnter(GameState::Experimenting)),
+        )
         .add_system(
             find_cheese
                 .in_set(OnUpdate(AppState::InGame))
@@ -164,19 +176,7 @@ struct TitleScreen;
 #[derive(Component)]
 struct StartButton;
 
-fn setup_title_screen(
-    mut commands: Commands,
-    fonts: Res<MyFonts>,
-    my: Res<MyAssets>,
-    assets_gltf: Res<Assets<Gltf>>,
-) {
-    if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-        commands.spawn(SceneBundle {
-            scene: gltf.scenes[0].clone(),
-            ..Default::default()
-        });
-    }
-
+fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
     commands
         .spawn((
             TitleScreen,
@@ -272,6 +272,17 @@ fn setup_title_screen(
                         });
                 });
         });
+}
+
+fn spawn_scene(mut commands: Commands, my: Option<Res<MyAssets>>, assets_gltf: Res<Assets<Gltf>>) {
+    if let Some(my) = my {
+        if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+            commands.spawn(SceneBundle {
+                scene: gltf.scenes[0].clone(),
+                ..Default::default()
+            });
+        }
+    }
 }
 
 fn adjust_rendering(
