@@ -6,7 +6,7 @@ use bevy::{gltf::Gltf, prelude::*, render::camera::ScalingMode, scene::SceneInst
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
 use bevy_rapier3d::prelude::*;
-use pathfinding::prelude::*;
+use pathfinding::{num_traits::ToPrimitive, prelude::*};
 
 fn main() {
     App::new()
@@ -821,19 +821,49 @@ fn experiment_button(
 struct PathfindingMatrix {
     grid: Grid,
     min_x: i32,
-    min_y: i32,
+    min_z: i32,
+    dx: f32,
+    dz: f32,
 }
 
 impl PathfindingMatrix {
-    fn grid_coord(&self, translation: Vec3) -> (usize, usize) {
-        (
-            (translation.x.floor() as i32 - self.min_x) as usize,
-            (translation.z.floor() as i32 - self.min_y) as usize,
-        )
+    fn grid_coord(&self, translation: Vec3) -> Option<(usize, usize)> {
+        match (
+            ((translation.x - self.dx).round() as i32 - self.min_x).to_usize(),
+            ((translation.z - self.dz).round() as i32 - self.min_z).to_usize(),
+        ) {
+            (Some(x), Some(z)) => Some((x, z)),
+            _ => None,
+        }
+    }
+
+    fn translation(&self, coord: (usize, usize), y: f32) -> Vec3 {
+        let x = (self.min_x + coord.0 as i32) as f32 + self.dx;
+        let z = (self.min_z + coord.1 as i32) as f32 + self.dz;
+        Vec3::new(x, y, z)
+    }
+}
+
+#[test]
+fn test_pathfinding_coord_conversion() {
+    let translation = Vec3::new(3.5, 0.0, -7.5);
+    let pathfinding = PathfindingMatrix {
+        grid: Grid::new(0, 8),
+        min_x: 0,
+        min_z: -8,
+        dx: 0.5,
+        dz: 0.5,
+    };
+    let grid_coord = pathfinding.grid_coord(translation);
+    assert_eq!(grid_coord, Some((3, 0)));
+    if let Some(coord) = grid_coord {
+        assert_eq!(pathfinding.translation(coord, 0.0), translation);
     }
 }
 
 fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Transform)>) {
+    let mut dx = 0.0;
+    let mut dz = 0.0;
     let tile_coords: Vec<(i32, i32)> = named_entities
         .iter()
         .filter_map(|(name, transform)| {
@@ -844,6 +874,8 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
             }
         })
         .map(|transform| {
+            dx = transform.translation.x - transform.translation.x.floor();
+            dz = transform.translation.z - transform.translation.z.floor();
             (
                 transform.translation.x.floor() as i32,
                 transform.translation.z.floor() as i32,
@@ -852,18 +884,21 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
         .collect::<_>();
 
     let xs = tile_coords.iter().map(|(x, _)| x);
-    let ys = tile_coords.iter().map(|(_, y)| y);
+    let zs = tile_coords.iter().map(|(_, y)| y);
     let min_x = xs.min();
-    let min_y = ys.min();
+    let min_z = zs.min();
 
-    if let (Some(min_x), Some(min_y)) = (min_x, min_y) {
+    if let (Some(min_x), Some(min_z)) = (min_x, min_z) {
         let grid = Grid::from_coordinates(&tile_coords);
         if let Some(grid) = grid {
-            commands.insert_resource(PathfindingMatrix {
+            let pathfinding = PathfindingMatrix {
                 grid,
                 min_x: *min_x,
-                min_y: *min_y,
-            });
+                min_z: *min_z,
+                dx,
+                dz,
+            };
+            commands.insert_resource(pathfinding);
         }
     }
 }
@@ -971,42 +1006,43 @@ fn find_cheese(
             let mut paths = cheese
                 .iter()
                 .filter_map(|cheese| {
-                    let start = pathfinding.grid_coord(rat_transform.translation);
-                    let goal = pathfinding.grid_coord(cheese.translation);
-                    let distance = rat_transform.translation.distance(cheese.translation);
-                    if distance < smell_distance {
-                        let smell_intencity = (smell_distance - distance).round() as i32;
-                        astar(
-                            &start,
-                            |p| {
-                                pathfinding
-                                    .grid
-                                    .neighbours(*p)
-                                    .into_iter()
-                                    .map(|p| (p, 1))
-                                    .collect::<Vec<_>>()
-                            },
-                            |p| pathfinding.grid.distance(*p, goal) / 3,
-                            |p| *p == goal,
-                        )
-                        .map(|(path, _cost)| (path, smell_intencity))
-                    } else {
-                        None
-                    }
+                    pathfinding
+                        .grid_coord(rat_transform.translation)
+                        .zip(pathfinding.grid_coord(cheese.translation))
+                        .and_then(|(start, goal)| {
+                            let distance = rat_transform.translation.distance(cheese.translation);
+                            if distance < smell_distance {
+                                let smell_intencity = (smell_distance - distance).round() as i32;
+                                astar(
+                                    &start,
+                                    |p| {
+                                        pathfinding
+                                            .grid
+                                            .neighbours(*p)
+                                            .into_iter()
+                                            .map(|p| (p, 1))
+                                            .collect::<Vec<_>>()
+                                    },
+                                    |p| pathfinding.grid.distance(*p, goal) / 3,
+                                    |p| *p == goal,
+                                )
+                                .map(|(path, _cost)| (path, smell_intencity))
+                            } else {
+                                None
+                            }
+                        })
                 })
                 .collect::<Vec<_>>();
 
             paths.sort_by_key(|(_, smell_intencity)| -*smell_intencity);
 
             if let Some((path, _smell_intencity)) = paths.first() {
-                if let &[first, second, ..] = path.as_slice() {
+                if let &[_first, second, ..] = path.as_slice() {
                     let speed = 2.0;
-                    let linvel = Vec3::new(
-                        second.0 as f32 - first.0 as f32,
-                        0.0,
-                        second.1 as f32 - first.1 as f32,
-                    )
-                    .normalize_or_zero()
+                    let second_translation =
+                        pathfinding.translation(second, rat_transform.translation.y);
+                    let linvel = (second_translation - rat_transform.translation)
+                        .normalize_or_zero()
                         * speed;
                     rat_transform.look_to(linvel, Vec3::Y);
                     commands.entity(rat_entity).insert(Velocity {
