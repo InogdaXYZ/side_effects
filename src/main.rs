@@ -286,7 +286,7 @@ fn spawn_scene(mut commands: Commands, my: Option<Res<MyAssets>>, assets_gltf: R
     if let Some(my) = my {
         if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
             commands.spawn(SceneBundle {
-                scene: gltf.scenes[0].clone(),
+                scene: gltf.named_scenes["level1"].clone(),
                 ..Default::default()
             });
         }
