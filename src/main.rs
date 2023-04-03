@@ -903,7 +903,7 @@ impl Default for Rat {
     fn default() -> Self {
         Rat {
             appetite: 1,
-            smell: 2,
+            smell: 1,
         }
     }
 }
