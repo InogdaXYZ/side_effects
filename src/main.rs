@@ -48,7 +48,9 @@ fn main() {
         .add_system(cleanup::<TitleScreen>.in_schedule(OnExit(AppState::TitleScreen)))
         // In game
         .add_system(setup_hud.in_schedule(OnEnter(AppState::InGame)))
-        .add_system(experiment_button.in_set(OnUpdate(AppState::InGame)))
+        .add_systems(
+            (medicine_property_button, experiment_button).in_set(OnUpdate(AppState::InGame)),
+        )
         .add_system(cleanup::<HUD>.in_schedule(OnExit(AppState::InGame)))
         // Planning experiment
         .add_systems(
@@ -390,7 +392,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    for medicine in &medicines.0 {
+                    for (medicine_index, medicine) in medicines.0.iter().enumerate() {
                         // Medicine card
                         parent
                             .spawn(NodeBundle {
@@ -423,9 +425,9 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                     },
                                 ));
 
-                                // Properties
-                                for (property, value) in
-                                    vec![("Appetite", medicine.appetite), ("Smell", medicine.smell)]
+                                // Effects
+                                for (effect, value) in
+                                    vec![(MedicineEffect::Appetite, medicine.appetite), (MedicineEffect::Smell, medicine.smell)]
                                 {
                                     parent
                                         .spawn(NodeBundle {
@@ -439,7 +441,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                         })
                                         .with_children(|parent| {
                                             parent.spawn(TextBundle::from_section(
-                                                property,
+                                                effect.title(),
                                                 TextStyle {
                                                     font: fonts.fira_sans_regular.clone_weak(),
                                                     font_size: 20.,
@@ -458,23 +460,27 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                                 .with_children(|parent| {
                                                     for choice in vec![-1, 0, 1] {
                                                         parent
-                                                            .spawn(ButtonBundle {
-                                                                style: Style {
-                                                                    size: Size::all(Val::Px(20.)),
-                                                                    justify_content:
-                                                                        JustifyContent::Center,
-                                                                    ..Default::default()
-                                                                },
-                                                                background_color: if value == choice
-                                                                {
-                                                                    // Selected
-                                                                    Color::YELLOW.into()
-                                                                } else {
-                                                                    Color::GRAY.into()
-                                                                },
-
-                                                                ..Default::default()
-                                                            })
+                                                            .spawn((MedicineEffectButton{
+                                                                medicine_index,
+                                                                effect,
+                                                                value: choice
+                                                            },
+                                                            ButtonBundle {
+                                                                                                                            style: Style {
+                                                                                                                                size: Size::all(Val::Px(20.)),
+                                                                                                                                justify_content:
+                                                                                                                                    JustifyContent::Center,
+                                                                                                                                ..Default::default()
+                                                                                                                            },
+                                                                                                                            background_color: if value == choice
+                                                                                                                            {
+                                                                                                                                // Selected
+                                                                                                                                Color::YELLOW.into()
+                                                                                                                            } else {
+                                                                                                                                Color::GRAY.into()
+                                                                                                                            },
+                                                                                                                            ..Default::default()
+                                                                                                                        }))
                                                             .with_children(|parent| {
                                                                 parent.spawn(
                                                                     TextBundle::from_section(
@@ -507,15 +513,15 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                     }
                 });
 
-            /***************************************************************************/
-            /*    ########  ##     ## ######## ########  #######  ##    ##  ######     */
-            /*    ##     ## ##     ##    ##       ##    ##     ## ###   ## ##    ##    */
-            /*    ##     ## ##     ##    ##       ##    ##     ## ####  ## ##          */
-            /*    ########  ##     ##    ##       ##    ##     ## ## ## ##  ######     */
-            /*    ##     ## ##     ##    ##       ##    ##     ## ##  ####       ##    */
-            /*    ##     ## ##     ##    ##       ##    ##     ## ##   ### ##    ##    */
-            /*    ########   #######     ##       ##     #######  ##    ##  ######     */
-            /***************************************************************************/
+            /****************************************************************************************************/
+            /*    ########  ##          ###    ##    ##          ##     ######  ########  #######  ########     */
+            /*    ##     ## ##         ## ##    ##  ##          ##     ##    ##    ##    ##     ## ##     ##    */
+            /*    ##     ## ##        ##   ##    ####          ##      ##          ##    ##     ## ##     ##    */
+            /*    ########  ##       ##     ##    ##          ##        ######     ##    ##     ## ########     */
+            /*    ##        ##       #########    ##         ##              ##    ##    ##     ## ##           */
+            /*    ##        ##       ##     ##    ##        ##         ##    ##    ##    ##     ## ##           */
+            /*    ##        ######## ##     ##    ##       ##           ######     ##     #######  ##           */
+            /****************************************************************************************************/
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -575,6 +581,100 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                         });
                 });
         });
+}
+
+/***************************************************************************/
+/*    ##     ## ######## ########  ####  ######  #### ##    ## ########    */
+/*    ###   ### ##       ##     ##  ##  ##    ##  ##  ###   ## ##          */
+/*    #### #### ##       ##     ##  ##  ##        ##  ####  ## ##          */
+/*    ## ### ## ######   ##     ##  ##  ##        ##  ## ## ## ######      */
+/*    ##     ## ##       ##     ##  ##  ##        ##  ##  #### ##          */
+/*    ##     ## ##       ##     ##  ##  ##    ##  ##  ##   ### ##          */
+/*    ##     ## ######## ########  ####  ######  #### ##    ## ########    */
+/***************************************************************************/
+
+#[derive(Component, Debug, Default)]
+struct Medicine {
+    name: String,
+    appetite: i32,
+    smell: i32,
+}
+
+impl Medicine {
+    fn with_name(&self, name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            ..*self
+        }
+    }
+
+    fn set_effect(&mut self, effect: &MedicineEffect, value: i32) {
+        match effect {
+            MedicineEffect::Appetite => self.appetite = value,
+            MedicineEffect::Smell => self.smell = value,
+        }
+    }
+}
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum MedicineEffect {
+    Appetite,
+    Smell,
+}
+
+impl MedicineEffect {
+    fn title(&self) -> &str {
+        match self {
+            MedicineEffect::Appetite => "Appetite",
+            MedicineEffect::Smell => "Smell",
+        }
+    }
+}
+
+#[derive(Resource)]
+struct Medicines(Vec<Medicine>);
+
+impl Default for Medicines {
+    fn default() -> Self {
+        Medicines(vec![
+            Medicine::default().with_name("A"),
+            Medicine::default().with_name("B"),
+            Medicine::default().with_name("C"),
+        ])
+    }
+}
+
+#[derive(Component, Debug, PartialEq, Eq)]
+struct MedicineEffectButton {
+    medicine_index: usize,
+    effect: MedicineEffect,
+    value: i32,
+}
+
+fn medicine_property_button(
+    interaction_query: Query<(&MedicineEffectButton, &Interaction), Changed<Interaction>>,
+    mut medicines: ResMut<Medicines>,
+    mut buttons: Query<(&mut BackgroundColor, &MedicineEffectButton)>,
+) {
+    for (this_button, interaction) in interaction_query.iter() {
+        match interaction {
+            Interaction::Clicked => {
+                medicines.0[this_button.medicine_index]
+                    .set_effect(&this_button.effect, this_button.value);
+
+                for (mut background, button) in buttons.iter_mut() {
+                    if button == this_button {
+                        *background = Color::YELLOW.into()
+                    } else if button.medicine_index == this_button.medicine_index
+                        && button.effect == this_button.effect
+                    {
+                        *background = Color::GRAY.into()
+                    }
+                }
+            }
+            Interaction::Hovered => {}
+            Interaction::None => {}
+        }
+    }
 }
 
 fn experiment_button(
@@ -799,44 +899,5 @@ fn find_cheese(
 
         // Stop
         commands.entity(rat_entity).remove::<Velocity>();
-    }
-}
-
-/***************************************************************************/
-/*    ##     ## ######## ########  ####  ######  #### ##    ## ########    */
-/*    ###   ### ##       ##     ##  ##  ##    ##  ##  ###   ## ##          */
-/*    #### #### ##       ##     ##  ##  ##        ##  ####  ## ##          */
-/*    ## ### ## ######   ##     ##  ##  ##        ##  ## ## ## ######      */
-/*    ##     ## ##       ##     ##  ##  ##        ##  ##  #### ##          */
-/*    ##     ## ##       ##     ##  ##  ##    ##  ##  ##   ### ##          */
-/*    ##     ## ######## ########  ####  ######  #### ##    ## ########    */
-/***************************************************************************/
-
-#[derive(Component, Debug, Default)]
-struct Medicine {
-    name: String,
-    appetite: i32,
-    smell: i32,
-}
-
-impl Medicine {
-    fn with_name(&self, name: &str) -> Self {
-        Self {
-            name: name.to_string(),
-            ..*self
-        }
-    }
-}
-
-#[derive(Resource)]
-struct Medicines(Vec<Medicine>);
-
-impl Default for Medicines {
-    fn default() -> Self {
-        Medicines(vec![
-            Medicine::default().with_name("A"),
-            Medicine::default().with_name("B"),
-            Medicine::default().with_name("C"),
-        ])
     }
 }
