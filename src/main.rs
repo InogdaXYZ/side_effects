@@ -97,7 +97,7 @@ enum GameState {
 
 #[derive(AssetCollection, Resource)]
 struct MyAssets {
-    #[asset(path = "temp-assets.gltf")]
+    #[asset(path = "levels.gltf")]
     main_gltf: Handle<Gltf>,
 }
 
@@ -892,6 +892,7 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
     if let (Some(min_x), Some(min_z)) = (min_x, min_z) {
         let grid = Grid::from_coordinates(&tile_coords);
         if let Some(grid) = grid {
+            dbg!(&grid);
             let pathfinding = PathfindingMatrix {
                 grid,
                 min_x: *min_x,
