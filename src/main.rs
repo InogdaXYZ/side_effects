@@ -878,10 +878,25 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
 /*    ##     ## ##     ##    ##       */
 /**************************************/
 
-#[derive(Component)]
+#[derive(Component, Copy, Clone)]
 struct Rat {
     appetite: i32,
     smell: i32,
+}
+
+impl Rat {
+    fn with_medicines(&self, medicines: &[Medicine]) -> Self {
+        let mut new = self.clone();
+        for medicine in medicines {
+            if medicine.in_experiment {
+                new.appetite += medicine.appetite;
+                new.smell += medicine.smell;
+            }
+        }
+        new.appetite = new.appetite.clamp(0, 2);
+        new.smell = new.smell.clamp(0, 2);
+        new
+    }
 }
 
 impl Default for Rat {
@@ -896,7 +911,11 @@ impl Default for Rat {
 #[derive(Component)]
 struct Cheese;
 
-fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>) {
+fn setup_entities(
+    mut commands: Commands,
+    named_entities: Query<(Entity, &Name)>,
+    medicines: Res<Medicines>,
+) {
     for (entity, name) in named_entities.iter() {
         if name.starts_with("rat") {
             // 0.5 x 0.2 x 0.1
@@ -909,7 +928,7 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name)>
             commands
                 .entity(entity)
                 .insert((
-                    Rat::default(),
+                    Rat::default().with_medicines(&medicines.0),
                     RigidBody::Dynamic,
                     KinematicCharacterController::default(),
                 ))
