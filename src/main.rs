@@ -25,6 +25,7 @@ fn main() {
         })
         .register_type::<Settings>()
         .init_resource::<Settings>()
+        .init_resource::<Medicines>()
         .add_state::<AppState>()
         .add_state::<GameState>()
         .add_loading_state(
@@ -336,6 +337,7 @@ fn start_button(
 /***************************************/
 
 #[derive(Component)]
+#[allow(clippy::upper_case_acronyms)]
 struct HUD;
 
 #[derive(Component)]
@@ -348,7 +350,7 @@ enum ExperimentAction {
 #[derive(Component)]
 struct ExperimentButtonCaption;
 
-fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>) {
+fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicines>) {
     commands
         .spawn((
             HUD,
@@ -356,64 +358,221 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>) {
                 style: Style {
                     position_type: PositionType::Absolute,
                     position: UiRect {
-                        bottom: Val::Percent(0.),
+                        top: Val::Percent(0.),
                         left: Val::Auto,
                         right: Val::Auto,
                         ..Default::default()
                     },
+                    gap: Size::all(Val::Px(20.)),
+                    padding: UiRect::all(Val::Px(40.)),
                     ..Default::default()
                 },
                 ..Default::default()
             },
         ))
         .with_children(|parent| {
+            /************************************************************************************/
+            /*    ##     ## ######## ########  ####  ######  #### ##    ## ########  ######     */
+            /*    ###   ### ##       ##     ##  ##  ##    ##  ##  ###   ## ##       ##    ##    */
+            /*    #### #### ##       ##     ##  ##  ##        ##  ####  ## ##       ##          */
+            /*    ## ### ## ######   ##     ##  ##  ##        ##  ## ## ## ######    ######     */
+            /*    ##     ## ##       ##     ##  ##  ##        ##  ##  #### ##             ##    */
+            /*    ##     ## ##       ##     ##  ##  ##    ##  ##  ##   ### ##       ##    ##    */
+            /*    ##     ## ######## ########  ####  ######  #### ##    ## ########  ######     */
+            /************************************************************************************/
             parent
-                .spawn((
-                    ExperimentButton(ExperimentAction::Conduct),
-                    ButtonBundle {
-                        background_color: Color::GRAY.into(),
+                .spawn(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Row,
+                        gap: Size::all(Val::Px(20.)),
                         ..Default::default()
                     },
-                ))
+                    ..Default::default()
+                })
                 .with_children(|parent| {
-                    parent.spawn((
-                        ExperimentButtonCaption,
-                        TextBundle::from_section(
-                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                            "Conduct experiment",
-                            TextStyle {
-                                font: fonts.fira_sans_regular.clone_weak(),
-                                font_size: 30.0,
-                                color: Color::BLACK,
-                            },
-                        ) // Set the alignment of the Text
-                        .with_text_alignment(TextAlignment::Center),
-                    ));
+                    for medicine in &medicines.0 {
+                        // Medicine card
+                        parent
+                            .spawn(NodeBundle {
+                                style: Style {
+                                    flex_direction: FlexDirection::Column,
+                                    gap: Size::all(Val::Px(10.)),
+                                    padding: UiRect::all(Val::Px(20.)),
+                                    ..Default::default()
+                                },
+                                background_color: Color::SALMON.into(),
+                                ..Default::default()
+                            })
+                            .with_children(|parent| {
+                                // Title
+                                parent.spawn(TextBundle::from_section(
+                                    "Medicine ".to_string() + &medicine.name,
+                                    TextStyle {
+                                        font: fonts.fira_sans_regular.clone_weak(),
+                                        font_size: 40.,
+                                        color: Color::BLACK.into(),
+                                    },
+                                ));
+
+                                parent.spawn(TextBundle::from_section(
+                                    "Effects:",
+                                    TextStyle {
+                                        font: fonts.fira_sans_regular.clone_weak(),
+                                        font_size: 30.,
+                                        color: Color::BLACK.into(),
+                                    },
+                                ));
+
+                                // Properties
+                                for (property, value) in
+                                    vec![("Appetite", medicine.appetite), ("Smell", medicine.smell)]
+                                {
+                                    parent
+                                        .spawn(NodeBundle {
+                                            style: Style {
+                                                flex_direction: FlexDirection::Row,
+                                                justify_content: JustifyContent::SpaceBetween,
+                                                gap: Size::all(Val::Px(20.)),
+                                                ..Default::default()
+                                            },
+                                            ..Default::default()
+                                        })
+                                        .with_children(|parent| {
+                                            parent.spawn(TextBundle::from_section(
+                                                property,
+                                                TextStyle {
+                                                    font: fonts.fira_sans_regular.clone_weak(),
+                                                    font_size: 20.,
+                                                    color: Color::BLACK.into(),
+                                                },
+                                            ));
+
+                                            parent
+                                                .spawn(NodeBundle {
+                                                    style: Style {
+                                                        flex_direction: FlexDirection::Row,
+                                                        ..Default::default()
+                                                    },
+                                                    ..Default::default()
+                                                })
+                                                .with_children(|parent| {
+                                                    for choice in vec![-1, 0, 1] {
+                                                        parent
+                                                            .spawn(ButtonBundle {
+                                                                style: Style {
+                                                                    size: Size::all(Val::Px(20.)),
+                                                                    justify_content:
+                                                                        JustifyContent::Center,
+                                                                    ..Default::default()
+                                                                },
+                                                                background_color: if value == choice
+                                                                {
+                                                                    // Selected
+                                                                    Color::YELLOW.into()
+                                                                } else {
+                                                                    Color::GRAY.into()
+                                                                },
+
+                                                                ..Default::default()
+                                                            })
+                                                            .with_children(|parent| {
+                                                                parent.spawn(
+                                                                    TextBundle::from_section(
+                                                                        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                                                                        match choice {
+                                                                            0 => "=",
+                                                                            c if c < 0 => "↓",
+                                                                            _ => "↑",
+                                                                        },
+                                                                        TextStyle {
+                                                                            font: fonts
+                                                                                .fira_sans_regular
+                                                                                .clone_weak(),
+                                                                            font_size: 20.0,
+                                                                            color: Color::BLACK,
+                                                                        },
+                                                                    ) // Set the alignment of the Text
+                                                                    .with_text_alignment(
+                                                                        TextAlignment::Center,
+                                                                    ),
+                                                                );
+                                                            });
+                                                    }
+                                                });
+                                        });
+                                }
+
+                                // Included in experiment
+                            });
+                    }
                 });
 
+            /***************************************************************************/
+            /*    ########  ##     ## ######## ########  #######  ##    ##  ######     */
+            /*    ##     ## ##     ##    ##       ##    ##     ## ###   ## ##    ##    */
+            /*    ##     ## ##     ##    ##       ##    ##     ## ####  ## ##          */
+            /*    ########  ##     ##    ##       ##    ##     ## ## ## ##  ######     */
+            /*    ##     ## ##     ##    ##       ##    ##     ## ##  ####       ##    */
+            /*    ##     ## ##     ##    ##       ##    ##     ## ##   ### ##    ##    */
+            /*    ########   #######     ##       ##     #######  ##    ##  ######     */
+            /***************************************************************************/
             parent
-                .spawn((
-                    ExperimentButton(ExperimentAction::Finish),
-                    ButtonBundle {
-                        background_color: Color::GRAY.into(),
-                        visibility: Visibility::Hidden,
+                .spawn(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
-                ))
+                    ..Default::default()
+                })
                 .with_children(|parent| {
-                    parent.spawn((
-                        ExperimentButtonCaption,
-                        TextBundle::from_section(
-                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                            "Finish experiment",
-                            TextStyle {
-                                font: fonts.fira_sans_regular.clone_weak(),
-                                font_size: 30.0,
-                                color: Color::BLACK,
+                    parent
+                        .spawn((
+                            ExperimentButton(ExperimentAction::Conduct),
+                            ButtonBundle {
+                                background_color: Color::GRAY.into(),
+                                ..Default::default()
                             },
-                        )
-                        .with_text_alignment(TextAlignment::Center),
-                    ));
+                        ))
+                        .with_children(|parent| {
+                            parent.spawn((
+                                ExperimentButtonCaption,
+                                TextBundle::from_section(
+                                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                                    "Conduct experiment",
+                                    TextStyle {
+                                        font: fonts.fira_sans_regular.clone_weak(),
+                                        font_size: 30.0,
+                                        color: Color::BLACK,
+                                    },
+                                ) // Set the alignment of the Text
+                                .with_text_alignment(TextAlignment::Center),
+                            ));
+                        });
+
+                    parent
+                        .spawn((
+                            ExperimentButton(ExperimentAction::Finish),
+                            ButtonBundle {
+                                background_color: Color::GRAY.into(),
+                                visibility: Visibility::Hidden,
+                                ..Default::default()
+                            },
+                        ))
+                        .with_children(|parent| {
+                            parent.spawn((
+                                ExperimentButtonCaption,
+                                TextBundle::from_section(
+                                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                                    "Finish experiment",
+                                    TextStyle {
+                                        font: fonts.fira_sans_regular.clone_weak(),
+                                        font_size: 30.0,
+                                        color: Color::BLACK,
+                                    },
+                                )
+                                .with_text_alignment(TextAlignment::Center),
+                            ));
+                        });
                 });
         });
 }
@@ -495,7 +654,6 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
 
     if let (Some(min_x), Some(min_y)) = (min_x, min_y) {
         let grid = Grid::from_coordinates(&tile_coords);
-        dbg!(&grid);
         if let Some(grid) = grid {
             commands.insert_resource(PathfindingMatrix {
                 grid,
@@ -592,9 +750,6 @@ fn find_cheese(
                 .filter_map(|cheese| {
                     let start = pathfinding.grid_coord(rat_transform.translation);
                     let goal = pathfinding.grid_coord(cheese.translation);
-                    dbg!(&start);
-                    dbg!(&goal);
-
                     let distance = rat_transform.translation.distance(cheese.translation);
                     if distance < smell_distance {
                         let smell_intencity = (smell_distance - distance).round() as i32;
@@ -618,7 +773,7 @@ fn find_cheese(
                     }
                 })
                 .collect::<Vec<_>>();
-            dbg!(&paths);
+
             paths.sort_by_key(|(_, smell_intencity)| -*smell_intencity);
 
             if let Some((path, _smell_intencity)) = paths.first() {
@@ -644,5 +799,44 @@ fn find_cheese(
 
         // Stop
         commands.entity(rat_entity).remove::<Velocity>();
+    }
+}
+
+/***************************************************************************/
+/*    ##     ## ######## ########  ####  ######  #### ##    ## ########    */
+/*    ###   ### ##       ##     ##  ##  ##    ##  ##  ###   ## ##          */
+/*    #### #### ##       ##     ##  ##  ##        ##  ####  ## ##          */
+/*    ## ### ## ######   ##     ##  ##  ##        ##  ## ## ## ######      */
+/*    ##     ## ##       ##     ##  ##  ##        ##  ##  #### ##          */
+/*    ##     ## ##       ##     ##  ##  ##    ##  ##  ##   ### ##          */
+/*    ##     ## ######## ########  ####  ######  #### ##    ## ########    */
+/***************************************************************************/
+
+#[derive(Component, Debug, Default)]
+struct Medicine {
+    name: String,
+    appetite: i32,
+    smell: i32,
+}
+
+impl Medicine {
+    fn with_name(&self, name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            ..*self
+        }
+    }
+}
+
+#[derive(Resource)]
+struct Medicines(Vec<Medicine>);
+
+impl Default for Medicines {
+    fn default() -> Self {
+        Medicines(vec![
+            Medicine::default().with_name("A"),
+            Medicine::default().with_name("B"),
+            Medicine::default().with_name("C"),
+        ])
     }
 }
