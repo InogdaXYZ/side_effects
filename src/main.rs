@@ -378,7 +378,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                     TextStyle {
                         font: fonts.fira_sans_regular.clone_weak(),
                         font_size: 40.,
-                        color: Color::BLACK.into(),
+                        color: Color::BLACK,
                     },
                 ));
 
@@ -387,12 +387,12 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                     TextStyle {
                         font: fonts.fira_sans_regular.clone_weak(),
                         font_size: 30.,
-                        color: Color::BLACK.into(),
+                        color: Color::BLACK,
                     },
                 ));
 
                 // Effects
-                for (effect, value) in vec![
+                for (effect, value) in &[
                     (MedicineEffect::Appetite, medicine.appetite),
                     (MedicineEffect::Smell, medicine.smell),
                 ] {
@@ -412,7 +412,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                 TextStyle {
                                     font: fonts.fira_sans_regular.clone_weak(),
                                     font_size: 20.,
-                                    color: Color::BLACK.into(),
+                                    color: Color::BLACK,
                                 },
                             ));
 
@@ -425,13 +425,13 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                     ..Default::default()
                                 })
                                 .with_children(|parent| {
-                                    for choice in vec![-1, 0, 1] {
+                                    for choice in &[-1, 0, 1] {
                                         parent
                                             .spawn((
                                                 MedicineEffectButton {
                                                     medicine_index,
-                                                    effect,
-                                                    value: choice,
+                                                    effect: *effect,
+                                                    value: *choice,
                                                 },
                                                 ButtonBundle {
                                                     style: Style {
@@ -453,7 +453,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                                     TextBundle::from_section(
                                                         match choice {
                                                             0 => "=",
-                                                            c if c < 0 => "↓",
+                                                            c if c < &0 => "↓",
                                                             _ => "↑",
                                                         },
                                                         TextStyle {
@@ -489,7 +489,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                             TextStyle {
                                 font: fonts.fira_sans_regular.clone_weak(),
                                 font_size: 20.,
-                                color: Color::BLACK.into(),
+                                color: Color::BLACK,
                             },
                         ));
 
@@ -502,10 +502,10 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                 ..Default::default()
                             })
                             .with_children(|parent| {
-                                for value in vec![false, true] {
+                                for value in &[false, true] {
                                     parent
                                         .spawn((
-                                            TestMedicineButton(medicine_index, value),
+                                            TestMedicineButton(medicine_index, *value),
                                             ButtonBundle {
                                                 style: Style {
                                                     justify_content: JustifyContent::Center,
@@ -514,7 +514,8 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                                     ..Default::default()
                                                 },
 
-                                                background_color: if value == medicine.in_experiment
+                                                background_color: if value
+                                                    == &medicine.in_experiment
                                                 {
                                                     // Selected
                                                     Color::YELLOW.into()
@@ -527,7 +528,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                         .with_children(|parent| {
                                             parent.spawn(
                                                 TextBundle::from_section(
-                                                    if value { "yes" } else { "no" },
+                                                    if *value { "yes" } else { "no" },
                                                     TextStyle {
                                                         font: fonts.fira_sans_regular.clone_weak(),
                                                         font_size: 20.0,
@@ -921,7 +922,7 @@ struct Rat {
 
 impl Rat {
     fn with_medicines(&self, medicines: &[Medicine]) -> Self {
-        let mut new = self.clone();
+        let mut new = *self;
         for medicine in medicines {
             if medicine.in_experiment {
                 new.appetite += medicine.appetite;
