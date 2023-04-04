@@ -316,7 +316,7 @@ fn adjust_rendering(
     }
 
     for mut directional_light in directional_lights.iter_mut() {
-        directional_light.illuminance *= TAU;
+        directional_light.illuminance *= 42.;
     }
 }
 
