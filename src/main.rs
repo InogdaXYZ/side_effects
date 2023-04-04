@@ -70,7 +70,13 @@ fn main() {
         .add_system(adjust_rendering.in_set(OnUpdate(GameState::Planning)))
         // Conducting experiment
         .add_systems(
-            (cleanup::<InvisibleWalls>, setup_pathfinding, setup_entities)
+            (
+                cleanup::<InvisibleWalls>,
+                setup_pathfinding,
+                setup_entities,
+                apply_system_buffers,
+                open_box,
+            )
                 .chain()
                 .in_schedule(OnEnter(GameState::Experimenting)),
         )
@@ -1121,8 +1127,15 @@ fn setup_entities(
                 .insert(RigidBody::Fixed)
                 .add_child(collider);
         }
+
+        if name.starts_with("box") {
+            commands.entity(entity).insert(CartonBox);
+        }
     }
 }
+
+#[derive(Component, Debug)]
+struct CartonBox;
 
 #[derive(Component, Debug)]
 struct Rest(Timer);
@@ -1301,6 +1314,33 @@ fn disappearing(
         transform.scale = Vec3::new(left, left, left);
         if disappearing.0.just_finished() {
             commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+fn open_box(
+    mut commands: Commands,
+    mut boxes: Query<(Entity, &mut AnimationPlayer), With<CartonBox>>,
+    my: Option<Res<MyAssets>>,
+    assets_gltf: Res<Assets<Gltf>>,
+    animation_clips: Res<Assets<AnimationClip>>,
+) {
+    if let Some(my) = my {
+        if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+            for (box_entity, mut animation_player) in boxes.iter_mut() {
+                animation_player
+                    .start(gltf.named_animations["boxAction"].clone())
+                    .stop_repeating();
+
+                if let Some(clip) = animation_clips.get(&gltf.named_animations["boxAction"]) {
+                    commands
+                        .entity(box_entity)
+                        .insert(Disappearing(Timer::from_seconds(
+                            clip.duration(),
+                            TimerMode::Once,
+                        )));
+                }
+            }
         }
     }
 }
