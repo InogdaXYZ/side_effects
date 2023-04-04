@@ -86,9 +86,9 @@ struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            rat_lin_speed: 6.0,
-            rat_ang_speed: 15.0,
-            min_distance: 0.4,
+            rat_lin_speed: 4.2,
+            rat_ang_speed: 20.0,
+            min_distance: 0.2,
         }
     }
 }
@@ -889,7 +889,7 @@ impl PathfindingMatrix {
         }
     }
 
-    fn translation(&self, coord: (usize, usize), y: f32) -> Vec3 {
+    fn translation(&self, coord: &(usize, usize), y: f32) -> Vec3 {
         let x = (self.min_x - 1 + coord.0 as i32) as f32 + self.dx;
         let z = (self.min_z - 1 + coord.1 as i32) as f32 + self.dz;
         Vec3::new(x, y, z)
@@ -912,7 +912,7 @@ fn test_pathfinding_coord_conversion() {
     let grid_coord = pathfinding.grid_coord(translation);
     assert_eq!(grid_coord, Some((2, 1)));
     if let Some(coord) = grid_coord {
-        assert_eq!(pathfinding.translation(coord, 0.0), translation);
+        assert_eq!(pathfinding.translation(&coord, 0.0), translation);
     }
 }
 
@@ -947,7 +947,7 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
                     RigidBody::Fixed,
                     Collider::cuboid(0.5, 0.5, 0.5),
                     TransformBundle::from_transform(Transform::from_translation(
-                        pathfinding.translation(coord, 0.5),
+                        pathfinding.translation(&coord, 0.5),
                     )),
                 ));
             }
@@ -984,6 +984,22 @@ impl Rat {
         new.appetite = new.appetite.clamp(0, 2);
         new.smell = new.smell.clamp(0, 2);
         new
+    }
+
+    fn velocity(from: &Transform, to: &Vec3, settings: &Settings) -> Velocity {
+        let current_forward = from.rotation.mul_vec3(Vec3::Z * -1.).normalize();
+        let desired_forward = (*to - from.translation).normalize_or_zero();
+
+        let linvel = desired_forward * settings.rat_lin_speed;
+
+        let rotation_axis = current_forward.cross(desired_forward).normalize();
+        let rotation_angle = current_forward.angle_between(desired_forward);
+        let angvel = if rotation_axis.is_finite() {
+            rotation_axis * rotation_angle * settings.rat_ang_speed
+        } else {
+            Vec3::ZERO
+        };
+        Velocity { linvel, angvel }
     }
 }
 
@@ -1043,14 +1059,31 @@ fn setup_entities(
     }
 }
 
+#[derive(Component, Debug)]
+struct Goal((usize, usize));
+
 fn find_cheese(
     mut commands: Commands,
-    rats: Query<(Entity, &Rat, &Transform)>,
+    rats: Query<(Entity, &Rat, &Transform, Option<&Goal>)>,
     cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
     pathfinding: Res<PathfindingMatrix>,
     settings: Res<Settings>,
 ) {
-    for (rat_entity, rat, rat_transform) in rats.iter() {
+    for (rat_entity, rat, rat_transform, goal) in rats.iter() {
+        if let Some(goal) = goal {
+            let goal_translation = pathfinding.translation(&goal.0, rat_transform.translation.y);
+            if goal_translation.distance(rat_transform.translation) > settings.min_distance {
+                let velocity = Rat::velocity(rat_transform, &goal_translation, &settings);
+                commands.entity(rat_entity).insert(velocity);
+                continue;
+            } else {
+                // Stop, aimlessly
+                commands
+                    .entity(rat_entity)
+                    .insert(Velocity::zero())
+                    .remove::<Goal>();
+            }
+        }
         if rat.appetite > 0 {
             /****************************************************************/
             /*     ######  ##     ## ######## ########  ######  ########    */
@@ -1104,36 +1137,26 @@ fn find_cheese(
                 };
 
                 if let Some(destination) = destination {
-                    let destination_translation =
-                        pathfinding.translation(destination, rat_transform.translation.y);
-                    let current_forward =
-                        rat_transform.rotation.mul_vec3(Vec3::Z * -1.).normalize();
-                    let desired_forward =
-                        (destination_translation - rat_transform.translation).normalize_or_zero();
-
-                    let linvel = desired_forward * settings.rat_lin_speed;
-
-                    let rotation_axis = current_forward.cross(desired_forward).normalize();
-                    let rotation_angle = current_forward.angle_between(desired_forward);
-                    let angvel = if rotation_axis.is_finite() {
-                        rotation_axis * rotation_angle * settings.rat_ang_speed
-                    } else {
-                        Vec3::ZERO
-                    };
-
-                    if destination_translation.distance(rat_transform.translation)
-                        > settings.min_distance
-                    {
-                        commands
-                            .entity(rat_entity)
-                            .insert(Velocity { linvel, angvel });
-                        continue;
-                    }
+                    commands.entity(rat_entity).insert(Goal(destination));
+                    continue;
                 }
             }
         }
 
-        // Stop
-        commands.entity(rat_entity).insert(Velocity::zero());
+        // Roam
+        {
+            use rand::seq::SliceRandom;
+            use rand::thread_rng;
+
+            let mut rng = thread_rng();
+            if let Some(rat_coord) = pathfinding.grid_coord(rat_transform.translation) {
+                let neighbors = pathfinding.grid.neighbours(rat_coord);
+                let destination = neighbors.choose(&mut rng);
+                if let Some(destination) = destination {
+                    commands.entity(rat_entity).insert(Goal(*destination));
+                    continue;
+                }
+            }
+        }
     }
 }
