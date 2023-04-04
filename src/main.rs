@@ -1,7 +1,5 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
-use std::f32::consts::TAU;
-
 use bevy::{gltf::Gltf, prelude::*, render::camera::ScalingMode, scene::SceneInstance};
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
@@ -19,8 +17,7 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin {
             always_on_top: true,
-            enabled: true,
-
+            enabled: false,
             ..Default::default()
         })
         .register_type::<Settings>()
@@ -76,9 +73,21 @@ fn main() {
         .run();
 }
 
-#[derive(Resource, Default, Debug, Reflect, InspectorOptions)]
+#[derive(Resource, Debug, Reflect, InspectorOptions)]
 #[reflect(Resource, InspectorOptions)]
-struct Settings;
+struct Settings {
+    rat_lin_speed: f32,
+    rat_ang_speed: f32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            rat_lin_speed: 2.0,
+            rat_ang_speed: 15.0,
+        }
+    }
+}
 
 #[derive(States, Clone, Hash, Eq, PartialEq, Debug, Default)]
 enum AppState {
@@ -892,7 +901,6 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
     if let (Some(min_x), Some(min_z)) = (min_x, min_z) {
         let grid = Grid::from_coordinates(&tile_coords);
         if let Some(grid) = grid {
-            dbg!(&grid);
             let pathfinding = PathfindingMatrix {
                 grid,
                 min_x: *min_x,
@@ -958,7 +966,7 @@ fn setup_entities(
             // 0.5 x 0.2 x 0.1
             let collider = commands
                 .spawn((
-                    Collider::cuboid(0.25, 0.1, 0.25),
+                    Collider::capsule_z(0.25, 0.1),
                     TransformBundle::from_transform(Transform::from_xyz(0., 0.1, 0.)),
                 ))
                 .id();
@@ -968,6 +976,7 @@ fn setup_entities(
                     Rat::default().with_medicines(&medicines.0),
                     RigidBody::Dynamic,
                     KinematicCharacterController::default(),
+                    LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Z,
                 ))
                 .add_child(collider);
         }
@@ -977,7 +986,12 @@ fn setup_entities(
         }
 
         if name.starts_with("tile") {
-            let collider = commands.spawn((Collider::cuboid(0.5, 0.065, 0.5),)).id();
+            let collider = commands
+                .spawn((
+                    Collider::cuboid(0.5, 0.065, 0.5),
+                    TransformBundle::from_transform(Transform::from_xyz(0., -0.065, 0.)),
+                ))
+                .id();
             commands
                 .entity(entity)
                 .insert(RigidBody::Fixed)
@@ -988,11 +1002,12 @@ fn setup_entities(
 
 fn find_cheese(
     mut commands: Commands,
-    mut rats: Query<(Entity, &Rat, &mut Transform)>,
+    rats: Query<(Entity, &Rat, &Transform)>,
     cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
     pathfinding: Res<PathfindingMatrix>,
+    settings: Res<Settings>,
 ) {
-    for (rat_entity, rat, mut rat_transform) in rats.iter_mut() {
+    for (rat_entity, rat, rat_transform) in rats.iter() {
         if rat.appetite > 0 {
             /****************************************************************/
             /*     ######  ##     ## ######## ########  ######  ########    */
@@ -1040,17 +1055,25 @@ fn find_cheese(
 
             if let Some((path, _smell_intencity)) = paths.first() {
                 if let &[_first, second, ..] = path.as_slice() {
-                    let speed = 2.0;
                     let second_translation =
                         pathfinding.translation(second, rat_transform.translation.y);
-                    let linvel = (second_translation - rat_transform.translation)
-                        .normalize_or_zero()
-                        * speed;
-                    rat_transform.look_to(linvel, Vec3::Y);
-                    commands.entity(rat_entity).insert(Velocity {
-                        linvel,
-                        ..Default::default()
-                    });
+                    let current_forward =
+                        rat_transform.rotation.mul_vec3(Vec3::Z * -1.).normalize();
+                    let desired_forward =
+                        (second_translation - rat_transform.translation).normalize_or_zero();
+                    let linvel = desired_forward * settings.rat_lin_speed;
+
+                    let rotation_axis = current_forward.cross(desired_forward).normalize();
+                    let rotation_angle = current_forward.angle_between(desired_forward);
+                    let angvel = if rotation_axis.is_finite() {
+                        rotation_axis * rotation_angle * settings.rat_ang_speed
+                    } else {
+                        Vec3::ZERO
+                    };
+
+                    commands
+                        .entity(rat_entity)
+                        .insert(Velocity { linvel, angvel });
                     continue;
                 }
             }
