@@ -50,6 +50,7 @@ fn main() {
                 medicine_property_button,
                 test_medicine_button,
                 experiment_button,
+                disappearing,
             )
                 .in_set(OnUpdate(AppState::InGame)),
         )
@@ -67,8 +68,8 @@ fn main() {
                 .chain()
                 .in_schedule(OnEnter(GameState::Experimenting)),
         )
-        .add_system(
-            find_cheese
+        .add_systems(
+            (find_cheese, eat_food)
                 .in_set(OnUpdate(AppState::InGame))
                 .in_set(OnUpdate(GameState::Experimenting)),
         )
@@ -228,9 +229,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
                 })
                 .with_children(|parent| {
                     parent.spawn(
-                        // Create a TextBundle that has a Text with a single section.
                         TextBundle::from_section(
-                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
                             "Side effects",
                             TextStyle {
                                 font: fonts.fira_sans_regular.clone_weak(),
@@ -242,9 +241,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
                     );
 
                     parent.spawn(
-                        // Create a TextBundle that has a Text with a single section.
                         TextBundle::from_section(
-                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
                             "a game in which you conduct experiments\nto figure out side effects of new medicine",
                             TextStyle {
                                 font: fonts.fira_sans_regular.clone_weak(),
@@ -279,9 +276,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
                                 ))
                                 .with_children(|parent| {
                                     parent.spawn(
-                                        // Create a TextBundle that has a Text with a single section.
                                         TextBundle::from_section(
-                                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
                                             "Start",
                                             TextStyle {
                                                 font: fonts.fira_sans_regular.clone_weak(),
@@ -680,7 +675,6 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                             parent.spawn((
                                 ExperimentButtonCaption,
                                 TextBundle::from_section(
-                                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
                                     "Conduct experiment",
                                     TextStyle {
                                         font: fonts.fira_sans_regular.clone_weak(),
@@ -709,7 +703,6 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                             parent.spawn((
                                 ExperimentButtonCaption,
                                 TextBundle::from_section(
-                                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
                                     "Finish experiment",
                                     TextStyle {
                                         font: fonts.fira_sans_regular.clone_weak(),
@@ -1089,7 +1082,19 @@ fn setup_entities(
         }
 
         if name.starts_with("cheese") {
-            commands.entity(entity).insert(Cheese);
+            let sensor = commands
+                .spawn((
+                    Collider::cylinder(0.25, 0.25),
+                    Sensor,
+                    ActiveCollisionTypes::default(),
+                    ActiveEvents::COLLISION_EVENTS,
+                    TransformBundle::from_transform(Transform::from_xyz(0., 0.25, 0.)),
+                ))
+                .id();
+            commands
+                .entity(entity)
+                .insert((Cheese, RigidBody::Fixed))
+                .add_child(sensor);
         }
 
         if name.starts_with("tile") {
@@ -1205,6 +1210,70 @@ fn find_cheese(
                     continue;
                 }
             }
+        }
+    }
+}
+
+fn eat_food(
+    mut commands: Commands,
+    mut collision_events: EventReader<CollisionEvent>,
+    mut rats: Query<(Entity, &mut Rat)>,
+    cheeses: Query<Entity, (With<Cheese>, Without<Disappearing>)>,
+    children: Query<&Parent, With<Collider>>,
+) {
+    for collision_event in collision_events.iter() {
+        println!("Received collision event: {:?}", collision_event);
+        match collision_event {
+            CollisionEvent::Started(first, second, _flags) => {
+                if let (Some(a), Some(b)) = (children.get(*first).ok(), children.get(*second).ok())
+                {
+                    let mut rat_entity = None;
+                    let mut cheese_entity = None;
+
+                    for (entity, _) in rats.iter() {
+                        if entity == a.get() || entity == b.get() {
+                            rat_entity = Some(entity);
+                            break;
+                        }
+                    }
+
+                    for entity in cheeses.iter() {
+                        if entity == a.get() || entity == b.get() {
+                            cheese_entity = Some(entity);
+                            break;
+                        }
+                    }
+
+                    dbg!(&rat_entity, &cheese_entity);
+
+                    if let (Some(rat), Some(cheese)) = (rat_entity, cheese_entity) {
+                        // Eat cheese
+                        let (_, mut rat) = rats.get_mut(rat).unwrap();
+                        rat.appetite = (rat.appetite - 1).clamp(0, 2);
+                        commands
+                            .entity(cheese)
+                            .insert(Disappearing(Timer::from_seconds(1.0, TimerMode::Once)));
+                    }
+                }
+            }
+            CollisionEvent::Stopped(_, _, _) => {}
+        }
+    }
+}
+
+#[derive(Component, Debug)]
+struct Disappearing(Timer);
+
+fn disappearing(
+    mut commands: Commands,
+    mut entites: Query<(Entity, &mut Disappearing, &mut Transform)>,
+    time: Res<Time>,
+) {
+    for (entity, mut disappearing, mut transform) in entites.iter_mut() {
+        let left = disappearing.0.tick(time.delta()).percent_left();
+        transform.scale = Vec3::new(left, left, left);
+        if disappearing.0.just_finished() {
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
