@@ -69,7 +69,7 @@ fn main() {
                 .in_schedule(OnEnter(GameState::Experimenting)),
         )
         .add_systems(
-            (find_cheese, eat_food)
+            (find_cheese, eat_food, rest)
                 .in_set(OnUpdate(AppState::InGame))
                 .in_set(OnUpdate(GameState::Experimenting)),
         )
@@ -82,6 +82,7 @@ struct Settings {
     rat_lin_speed: f32,
     rat_ang_speed: f32,
     min_distance: f32,
+    max_rest_sec: f32,
 }
 
 impl Default for Settings {
@@ -90,6 +91,7 @@ impl Default for Settings {
             rat_lin_speed: 4.2,
             rat_ang_speed: 20.0,
             min_distance: 0.2,
+            max_rest_sec: 0.6,
         }
     }
 }
@@ -1113,11 +1115,22 @@ fn setup_entities(
 }
 
 #[derive(Component, Debug)]
+struct Rest(Timer);
+
+fn rest(mut commands: Commands, mut resting: Query<(Entity, &mut Rest)>, time: Res<Time>) {
+    for (entity, mut rest) in resting.iter_mut() {
+        if rest.0.tick(time.delta()).just_finished() {
+            commands.entity(entity).remove::<Rest>();
+        }
+    }
+}
+
+#[derive(Component, Debug)]
 struct Goal((usize, usize));
 
 fn find_cheese(
     mut commands: Commands,
-    rats: Query<(Entity, &Rat, &Transform, Option<&Goal>)>,
+    rats: Query<(Entity, &Rat, &Transform, Option<&Goal>), Without<Rest>>,
     cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
     pathfinding: Res<PathfindingMatrix>,
     settings: Res<Settings>,
@@ -1134,7 +1147,12 @@ fn find_cheese(
                 commands
                     .entity(rat_entity)
                     .insert(Velocity::zero())
-                    .remove::<Goal>();
+                    .remove::<Goal>()
+                    .insert(Rest(Timer::from_seconds(
+                        (settings.max_rest_sec * (2 - rat.appetite) as f32 / 2.).max(0.0),
+                        TimerMode::Once,
+                    )));
+                continue;
             }
         }
         if rat.appetite > 0 {
@@ -1195,7 +1213,6 @@ fn find_cheese(
                 }
             }
         }
-
         // Roam
         {
             use rand::seq::SliceRandom;
