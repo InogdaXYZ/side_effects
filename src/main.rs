@@ -63,7 +63,9 @@ fn main() {
         .add_system(adjust_rendering.in_set(OnUpdate(GameState::Planning)))
         // Conducting experiment
         .add_systems(
-            (setup_pathfinding, setup_entities).in_schedule(OnEnter(GameState::Experimenting)),
+            (cleanup::<InvisibleWalls>, setup_pathfinding, setup_entities)
+                .chain()
+                .in_schedule(OnEnter(GameState::Experimenting)),
         )
         .add_system(
             find_cheese
@@ -914,6 +916,9 @@ fn test_pathfinding_coord_conversion() {
     }
 }
 
+#[derive(Component, Debug)]
+struct InvisibleWalls;
+
 fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Transform)>) {
     let tiles = named_entities
         .iter()
@@ -931,7 +936,11 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
     let mut inverted_grid = pathfinding.grid.clone();
     inverted_grid.invert();
     commands
-        .spawn((Name::new("Invisible walls"), TransformBundle::default()))
+        .spawn((
+            Name::new("Invisible walls"),
+            InvisibleWalls,
+            TransformBundle::default(),
+        ))
         .with_children(|parent| {
             for coord in inverted_grid {
                 parent.spawn((
