@@ -78,13 +78,15 @@ fn main() {
 struct Settings {
     rat_lin_speed: f32,
     rat_ang_speed: f32,
+    min_distance: f32,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            rat_lin_speed: 2.0,
+            rat_lin_speed: 6.0,
             rat_ang_speed: 15.0,
+            min_distance: 0.4,
         }
     }
 }
@@ -294,10 +296,13 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
 fn spawn_scene(mut commands: Commands, my: Option<Res<MyAssets>>, assets_gltf: Res<Assets<Gltf>>) {
     if let Some(my) = my {
         if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-            commands.spawn(SceneBundle {
-                scene: gltf.named_scenes["level1"].clone(),
-                ..Default::default()
-            });
+            commands.spawn((
+                Name::new("Level"),
+                SceneBundle {
+                    scene: gltf.named_scenes["level1"].clone(),
+                    ..Default::default()
+                },
+            ));
         }
     }
 }
@@ -837,10 +842,45 @@ struct PathfindingMatrix {
 }
 
 impl PathfindingMatrix {
+    fn from_coordinates(tiles: &[&Transform]) -> Self {
+        let mut dx = 0.0;
+        let mut dz = 0.0;
+        let tile_coords: Vec<(i32, i32)> = tiles
+            .iter()
+            .map(|transform| {
+                dx = transform.translation.x - transform.translation.x.floor();
+                dz = transform.translation.z - transform.translation.z.floor();
+                (
+                    transform.translation.x.floor() as i32,
+                    transform.translation.z.floor() as i32,
+                )
+            })
+            .collect::<_>();
+
+        let xs = tile_coords.iter().map(|(x, _)| x);
+        let zs = tile_coords.iter().map(|(_, y)| y);
+        let min_x = xs.min().unwrap_or(&0);
+        let min_z = zs.min().unwrap_or(&0);
+
+        let original_grid = Grid::from_coordinates(&tile_coords).unwrap_or(Grid::new(0, 0));
+        let mut grid = Grid::new(original_grid.width + 2, original_grid.height + 2);
+        for coord in original_grid.iter() {
+            grid.add_vertex((coord.0 + 1, coord.1 + 1));
+        }
+
+        PathfindingMatrix {
+            grid,
+            min_x: *min_x,
+            min_z: *min_z,
+            dx,
+            dz,
+        }
+    }
+
     fn grid_coord(&self, translation: Vec3) -> Option<(usize, usize)> {
         match (
-            ((translation.x - self.dx).round() as i32 - self.min_x).to_usize(),
-            ((translation.z - self.dz).round() as i32 - self.min_z).to_usize(),
+            ((translation.x - self.dx).round() as i32 - self.min_x + 1).to_usize(),
+            ((translation.z - self.dz).round() as i32 - self.min_z + 1).to_usize(),
         ) {
             (Some(x), Some(z)) => Some((x, z)),
             _ => None,
@@ -848,33 +888,34 @@ impl PathfindingMatrix {
     }
 
     fn translation(&self, coord: (usize, usize), y: f32) -> Vec3 {
-        let x = (self.min_x + coord.0 as i32) as f32 + self.dx;
-        let z = (self.min_z + coord.1 as i32) as f32 + self.dz;
+        let x = (self.min_x - 1 + coord.0 as i32) as f32 + self.dx;
+        let z = (self.min_z - 1 + coord.1 as i32) as f32 + self.dz;
         Vec3::new(x, y, z)
     }
 }
 
 #[test]
 fn test_pathfinding_coord_conversion() {
-    let translation = Vec3::new(3.5, 0.0, -7.5);
-    let pathfinding = PathfindingMatrix {
-        grid: Grid::new(0, 8),
-        min_x: 0,
-        min_z: -8,
-        dx: 0.5,
-        dz: 0.5,
-    };
+    let translation = Vec3::new(1.5, 0.0, -2.5);
+    let coords: Vec<Transform> = vec![
+        Vec3::new(0.5, 0.0, -0.5),
+        Vec3::new(0.5, 0.0, -1.5),
+        Vec3::new(0.5, 0.0, -2.5),
+        Vec3::new(1.5, 0.0, -2.5),
+    ]
+    .iter()
+    .map(|coord| Transform::from_translation(*coord))
+    .collect();
+    let pathfinding = PathfindingMatrix::from_coordinates(&coords.iter().collect::<Vec<_>>());
     let grid_coord = pathfinding.grid_coord(translation);
-    assert_eq!(grid_coord, Some((3, 0)));
+    assert_eq!(grid_coord, Some((2, 1)));
     if let Some(coord) = grid_coord {
         assert_eq!(pathfinding.translation(coord, 0.0), translation);
     }
 }
 
 fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Transform)>) {
-    let mut dx = 0.0;
-    let mut dz = 0.0;
-    let tile_coords: Vec<(i32, i32)> = named_entities
+    let tiles = named_entities
         .iter()
         .filter_map(|(name, transform)| {
             if name.starts_with("tile") {
@@ -883,34 +924,27 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
                 None
             }
         })
-        .map(|transform| {
-            dx = transform.translation.x - transform.translation.x.floor();
-            dz = transform.translation.z - transform.translation.z.floor();
-            (
-                transform.translation.x.floor() as i32,
-                transform.translation.z.floor() as i32,
-            )
-        })
-        .collect::<_>();
+        .collect::<Vec<_>>();
+    let pathfinding = PathfindingMatrix::from_coordinates(&tiles);
 
-    let xs = tile_coords.iter().map(|(x, _)| x);
-    let zs = tile_coords.iter().map(|(_, y)| y);
-    let min_x = xs.min();
-    let min_z = zs.min();
+    // Add invisible wall colliders
+    let mut inverted_grid = pathfinding.grid.clone();
+    inverted_grid.invert();
+    commands
+        .spawn((Name::new("Invisible walls"), TransformBundle::default()))
+        .with_children(|parent| {
+            for coord in inverted_grid {
+                parent.spawn((
+                    RigidBody::Fixed,
+                    Collider::cuboid(0.5, 0.5, 0.5),
+                    TransformBundle::from_transform(Transform::from_translation(
+                        pathfinding.translation(coord, 0.5),
+                    )),
+                ));
+            }
+        });
 
-    if let (Some(min_x), Some(min_z)) = (min_x, min_z) {
-        let grid = Grid::from_coordinates(&tile_coords);
-        if let Some(grid) = grid {
-            let pathfinding = PathfindingMatrix {
-                grid,
-                min_x: *min_x,
-                min_z: *min_z,
-                dx,
-                dz,
-            };
-            commands.insert_resource(pathfinding);
-        }
-    }
+    commands.insert_resource(pathfinding);
 }
 
 /**************************************/
@@ -1054,13 +1088,20 @@ fn find_cheese(
             paths.sort_by_key(|(_, smell_intencity)| -*smell_intencity);
 
             if let Some((path, _smell_intencity)) = paths.first() {
-                if let &[_first, second, ..] = path.as_slice() {
-                    let second_translation =
-                        pathfinding.translation(second, rat_transform.translation.y);
+                let destination = match *path.as_slice() {
+                    [_, second, ..] => Some(second),
+                    [first, ..] => Some(first),
+                    [] => None,
+                };
+
+                if let Some(destination) = destination {
+                    let destination_translation =
+                        pathfinding.translation(destination, rat_transform.translation.y);
                     let current_forward =
                         rat_transform.rotation.mul_vec3(Vec3::Z * -1.).normalize();
                     let desired_forward =
-                        (second_translation - rat_transform.translation).normalize_or_zero();
+                        (destination_translation - rat_transform.translation).normalize_or_zero();
+
                     let linvel = desired_forward * settings.rat_lin_speed;
 
                     let rotation_axis = current_forward.cross(desired_forward).normalize();
@@ -1071,15 +1112,19 @@ fn find_cheese(
                         Vec3::ZERO
                     };
 
-                    commands
-                        .entity(rat_entity)
-                        .insert(Velocity { linvel, angvel });
-                    continue;
+                    if destination_translation.distance(rat_transform.translation)
+                        > settings.min_distance
+                    {
+                        commands
+                            .entity(rat_entity)
+                            .insert(Velocity { linvel, angvel });
+                        continue;
+                    }
                 }
             }
         }
 
         // Stop
-        commands.entity(rat_entity).remove::<Velocity>();
+        commands.entity(rat_entity).insert(Velocity::zero());
     }
 }
