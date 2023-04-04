@@ -205,92 +205,132 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
                 style: Style {
                     position_type: PositionType::Absolute,
                     position: UiRect {
-                        bottom: Val::Percent(50.0),
+                        top: Val::Px(50.0),
                         right: Val::Px(50.0),
+                        bottom: Val::Px(50.0),
                         ..default()
                     },
                     flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::SpaceBetween,
                     ..default()
                 },
                 ..Default::default()
             },
         ))
         .with_children(|parent| {
-            parent.spawn(
-                // Create a TextBundle that has a Text with a single section.
-                TextBundle::from_section(
-                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                    "Side effects",
-                    TextStyle {
-                        font: fonts.fira_sans_regular.clone_weak(),
-                        font_size: 100.0,
-                        color: Color::BLACK,
-                    },
-                ) // Set the alignment of the Text
-                .with_text_alignment(TextAlignment::Center),
-            );
-
-            parent.spawn(
-                // Create a TextBundle that has a Text with a single section.
-                TextBundle::from_section(
-                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                    "by Roman and Christina",
-                    TextStyle {
-                        font: fonts.fira_sans_regular.clone_weak(),
-                        font_size: 30.0,
-                        color: Color::BLACK,
-                    },
-                ) // Set the alignment of the Text
-                .with_text_alignment(TextAlignment::Center),
-            );
-
-            parent.spawn(
-                // Create a TextBundle that has a Text with a single section.
-                TextBundle::from_section(
-                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                    "built with Bevy engine; fonts from Mozilla",
-                    TextStyle {
-                        font: fonts.fira_sans_regular.clone_weak(),
-                        font_size: 20.0,
-                        color: Color::BLACK,
-                    },
-                ) // Set the alignment of the Text
-                .with_text_alignment(TextAlignment::Center),
-            );
-
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        justify_content: JustifyContent::Center,
-                        padding: UiRect::all(Val::Px(20.)),
+                        flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
                     ..Default::default()
                 })
                 .with_children(|parent| {
+                    parent.spawn(
+                        // Create a TextBundle that has a Text with a single section.
+                        TextBundle::from_section(
+                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                            "Side effects",
+                            TextStyle {
+                                font: fonts.fira_sans_regular.clone_weak(),
+                                font_size: 100.0,
+                                color: Color::BLACK,
+                            },
+                        ) // Set the alignment of the Text
+                        .with_text_alignment(TextAlignment::Center),
+                    );
+
+                    parent.spawn(
+                        // Create a TextBundle that has a Text with a single section.
+                        TextBundle::from_section(
+                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                            "a game in which you conduct experiments\nto figure out side effects of new medicine",
+                            TextStyle {
+                                font: fonts.fira_sans_regular.clone_weak(),
+                                font_size: 30.0,
+                                color: Color::BLACK,
+                            },
+                        ) // Set the alignment of the Text
+                        .with_text_alignment(TextAlignment::Center),
+                    );
+
                     parent
-                        .spawn((
-                            StartButton,
-                            ButtonBundle {
-                                background_color: Color::GRAY.into(),
+                        .spawn(NodeBundle {
+                            style: Style {
+                                justify_content: JustifyContent::Center,
+                                padding: UiRect::all(Val::Px(20.)),
                                 ..Default::default()
                             },
-                        ))
+                            ..Default::default()
+                        })
                         .with_children(|parent| {
-                            parent.spawn(
-                                // Create a TextBundle that has a Text with a single section.
-                                TextBundle::from_section(
-                                    // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                                    "Start",
-                                    TextStyle {
-                                        font: fonts.fira_sans_regular.clone_weak(),
-                                        font_size: 30.0,
-                                        color: Color::BLACK,
+                            parent
+                                .spawn((
+                                    StartButton,
+                                    ButtonBundle {
+                                        background_color: Color::DARK_GRAY.into(),
+                                        style: Style{
+                                            padding: UiRect::all(Val::Px(10.)),
+                                            ..Default::default()
+                                        },
+                                        ..Default::default()
                                     },
-                                ) // Set the alignment of the Text
-                                .with_text_alignment(TextAlignment::Center),
-                            );
+                                ))
+                                .with_children(|parent| {
+                                    parent.spawn(
+                                        // Create a TextBundle that has a Text with a single section.
+                                        TextBundle::from_section(
+                                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                                            "Start",
+                                            TextStyle {
+                                                font: fonts.fira_sans_regular.clone_weak(),
+                                                font_size: 30.0,
+                                                color: Color::WHITE,
+                                            },
+                                        ) // Set the alignment of the Text
+                                        .with_text_alignment(TextAlignment::Center),
+                                    );
+                                });
                         });
+                });
+
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Column,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(
+                        // Create a TextBundle that has a Text with a single section.
+                        TextBundle::from_section(
+                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                            "by Roman and Christina",
+                            TextStyle {
+                                font: fonts.fira_sans_regular.clone_weak(),
+                                font_size: 30.0,
+                                color: Color::BLACK,
+                            },
+                        ) // Set the alignment of the Text
+                        .with_text_alignment(TextAlignment::Center),
+                    );
+
+                    parent.spawn(
+                        // Create a TextBundle that has a Text with a single section.
+                        TextBundle::from_section(
+                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                            "built in Bevy engine; FiraSans font from Mozilla",
+                            TextStyle {
+                                font: fonts.fira_sans_regular.clone_weak(),
+                                font_size: 20.0,
+                                color: Color::BLACK,
+                            },
+                        ) // Set the alignment of the Text
+                        .with_text_alignment(TextAlignment::Center),
+                    );
                 });
         });
 }
@@ -628,7 +668,11 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                         .spawn((
                             ExperimentButton(ExperimentAction::Conduct),
                             ButtonBundle {
-                                background_color: Color::GRAY.into(),
+                                background_color: Color::DARK_GRAY.into(),
+                                style: Style{
+                                    padding: UiRect::all(Val::Px(10.)),
+                                    ..Default::default()
+                                },
                                 ..Default::default()
                             },
                         ))
@@ -641,7 +685,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                     TextStyle {
                                         font: fonts.fira_sans_regular.clone_weak(),
                                         font_size: 30.0,
-                                        color: Color::BLACK,
+                                        color: Color::WHITE,
                                     },
                                 ) // Set the alignment of the Text
                                 .with_text_alignment(TextAlignment::Center),
@@ -652,7 +696,11 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                         .spawn((
                             ExperimentButton(ExperimentAction::Finish),
                             ButtonBundle {
-                                background_color: Color::GRAY.into(),
+                                background_color: Color::DARK_GRAY.into(),
+                                style: Style{
+                                    padding: UiRect::all(Val::Px(10.)),
+                                    ..Default::default()
+                                },
                                 visibility: Visibility::Hidden,
                                 ..Default::default()
                             },
@@ -666,7 +714,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                                     TextStyle {
                                         font: fonts.fira_sans_regular.clone_weak(),
                                         font_size: 30.0,
-                                        color: Color::BLACK,
+                                        color: Color::WHITE,
                                     },
                                 )
                                 .with_text_alignment(TextAlignment::Center),
