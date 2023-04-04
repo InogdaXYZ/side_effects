@@ -1080,7 +1080,8 @@ fn setup_entities(
     medicines: Res<Medicines>,
 ) {
     for (entity, name) in named_entities.iter() {
-        if name.starts_with("rat") {
+        if name.starts_with("rat.") {
+            dbg!(&name);
             // 0.5 x 0.2 x 0.1
             let collider = commands
                 .spawn((
@@ -1099,7 +1100,7 @@ fn setup_entities(
                 .add_child(collider);
         }
 
-        if name.starts_with("cheese") {
+        if name.starts_with("cheese.") {
             let sensor = commands
                 .spawn((
                     Collider::cylinder(0.25, 0.25),
@@ -1115,7 +1116,7 @@ fn setup_entities(
                 .add_child(sensor);
         }
 
-        if name.starts_with("tile") {
+        if name.starts_with("tile.") {
             let collider = commands
                 .spawn((
                     Collider::cuboid(0.5, 0.065, 0.5),
@@ -1128,7 +1129,7 @@ fn setup_entities(
                 .add_child(collider);
         }
 
-        if name.starts_with("box") {
+        if name.starts_with("box.") {
             commands.entity(entity).insert(CartonBox);
         }
     }
@@ -1158,6 +1159,7 @@ fn find_cheese(
     pathfinding: Res<PathfindingMatrix>,
     settings: Res<Settings>,
 ) {
+    dbg!(&rats.iter().len());
     for (rat_entity, rat, rat_transform, goal) in rats.iter() {
         if let Some(goal) = goal {
             let goal_translation = pathfinding.translation(&goal.0, rat_transform.translation.y);
@@ -1190,6 +1192,7 @@ fn find_cheese(
             /****************************************************************/
             let smell_distance = 5.0 * rat.smell as f32;
             // @TODO: if appetite is especially high, rat starts actively looking for food, even if can't smell it
+            dbg!(&cheese.iter().len());
             let mut paths = cheese
                 .iter()
                 .filter_map(|cheese| {
