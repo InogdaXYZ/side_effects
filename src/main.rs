@@ -1081,7 +1081,6 @@ fn setup_entities(
 ) {
     for (entity, name) in named_entities.iter() {
         if name.starts_with("rat.") {
-            dbg!(&name);
             // 0.5 x 0.2 x 0.1
             let collider = commands
                 .spawn((
@@ -1159,7 +1158,6 @@ fn find_cheese(
     pathfinding: Res<PathfindingMatrix>,
     settings: Res<Settings>,
 ) {
-    dbg!(&rats.iter().len());
     for (rat_entity, rat, rat_transform, goal) in rats.iter() {
         if let Some(goal) = goal {
             let goal_translation = pathfinding.translation(&goal.0, rat_transform.translation.y);
@@ -1192,7 +1190,6 @@ fn find_cheese(
             /****************************************************************/
             let smell_distance = 5.0 * rat.smell as f32;
             // @TODO: if appetite is especially high, rat starts actively looking for food, even if can't smell it
-            dbg!(&cheese.iter().len());
             let mut paths = cheese
                 .iter()
                 .filter_map(|cheese| {
@@ -1286,8 +1283,6 @@ fn eat_food(
                             break;
                         }
                     }
-
-                    dbg!(&rat_entity, &cheese_entity);
 
                     if let (Some(rat), Some(cheese)) = (rat_entity, cheese_entity) {
                         // Eat cheese
