@@ -365,7 +365,8 @@ fn adjust_rendering(
     }
 
     for mut spot_light in spot_lights.iter_mut() {
-        spot_light.intensity /= k;
+        spot_light.range += 100.;
+//         spot_light.intensity /= k;
     }
 
     for mut directional_light in directional_lights.iter_mut() {
