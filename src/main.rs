@@ -1,6 +1,12 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
-use bevy::{gltf::Gltf, prelude::*, render::camera::ScalingMode, scene::SceneInstance};
+use bevy::{
+    gltf::Gltf,
+    pbr::{ClusterConfig, ClusterFarZMode},
+    prelude::*,
+    render::camera::ScalingMode,
+    scene::SceneInstance,
+};
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
 use bevy_rapier3d::prelude::*;
@@ -347,15 +353,18 @@ fn spawn_scene(mut commands: Commands, my: Option<Res<MyAssets>>, assets_gltf: R
 }
 
 fn adjust_rendering(
-    mut cameras: Query<&mut Projection, Added<Camera3d>>,
+    mut cameras: Query<(&mut Projection, &mut ClusterConfig), Added<Camera3d>>,
     mut point_lights: Query<&mut PointLight, Added<PointLight>>,
     mut spot_lights: Query<&mut SpotLight, Added<SpotLight>>,
     mut directional_lights: Query<&mut DirectionalLight, Added<DirectionalLight>>,
 ) {
-    for mut projection in cameras.iter_mut() {
+    for (mut projection, mut cluster_config) in cameras.iter_mut() {
         if let Projection::Orthographic(orthographic_projection) = projection.as_mut() {
             orthographic_projection.scaling_mode = ScalingMode::WindowSize(100.0);
             orthographic_projection.scale = 1.0;
+        }
+        if let ClusterConfig::FixedZ { z_config, .. } = cluster_config.as_mut() {
+            z_config.far_z_mode = ClusterFarZMode::Constant(0.0);
         }
     }
 
