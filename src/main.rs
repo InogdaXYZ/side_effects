@@ -12,7 +12,12 @@ use bevy::{
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
 use bevy_rapier3d::prelude::*;
-use pathfinding::{num_traits::ToPrimitive, prelude::*};
+use pathfinding::{
+    num_traits::{Pow, ToPrimitive},
+    prelude::*,
+};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 fn main() {
     App::new()
@@ -470,6 +475,7 @@ fn setup_hud(mut commands: Commands, fonts: Res<MyFonts>, medicines: Res<Medicin
                 for (effect, value) in &[
                     (MedicineEffect::Appetite, medicine.appetite),
                     (MedicineEffect::Smell, medicine.smell),
+                    (MedicineEffect::Fear, medicine.fear),
                 ] {
                     parent
                         .spawn(NodeBundle {
@@ -756,6 +762,7 @@ struct Medicine {
     name: String,
     appetite: i32,
     smell: i32,
+    fear: i32,
     in_experiment: bool,
 }
 
@@ -771,6 +778,7 @@ impl Medicine {
         match effect {
             MedicineEffect::Appetite => self.appetite = value,
             MedicineEffect::Smell => self.smell = value,
+            MedicineEffect::Fear => self.fear = value,
         }
     }
 }
@@ -778,6 +786,7 @@ impl Medicine {
 enum MedicineEffect {
     Appetite,
     Smell,
+    Fear,
 }
 
 impl MedicineEffect {
@@ -785,6 +794,7 @@ impl MedicineEffect {
         match self {
             MedicineEffect::Appetite => "Appetite",
             MedicineEffect::Smell => "Smell",
+            MedicineEffect::Fear => "Fear",
         }
     }
 }
@@ -968,6 +978,10 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name),
         if name.starts_with("box.") {
             commands.entity(entity).insert(CartonBox);
         }
+
+        if name.starts_with("scarecat.") {
+            commands.entity(entity).insert(ScareCat);
+        }
     }
 }
 
@@ -1118,6 +1132,7 @@ fn setup_pathfinding(mut commands: Commands, tiles: Query<&Transform, With<Tile>
 struct Rat {
     appetite: i32,
     smell: i32,
+    fear: i32,
 }
 
 impl Default for Rat {
@@ -1125,6 +1140,7 @@ impl Default for Rat {
         Rat {
             appetite: 1,
             smell: 1,
+            fear: 1,
         }
     }
 }
@@ -1136,10 +1152,12 @@ impl Rat {
             if medicine.in_experiment {
                 new.appetite += medicine.appetite;
                 new.smell += medicine.smell;
+                new.fear += medicine.fear;
             }
         }
         new.appetite = new.appetite.clamp(0, 2);
         new.smell = new.smell.clamp(0, 2);
+        new.fear = new.fear.clamp(0, 2);
         new
     }
 
@@ -1178,17 +1196,44 @@ fn rest(mut commands: Commands, mut resting: Query<(Entity, &mut Rest)>, time: R
 }
 
 #[derive(Component, Debug)]
+struct Panic {
+    coord: (usize, usize),
+    timer: Timer,
+}
+
+#[derive(Component, Debug)]
 struct Goal((usize, usize));
 
 fn set_goal(
     mut commands: Commands,
-    rats: Query<(Entity, &Rat, &Transform, Option<&Goal>), Without<Rest>>,
+    mut rats: Query<(Entity, &Rat, &Transform, Option<&Goal>, Option<&mut Panic>), Without<Rest>>,
     cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
-    obstacles: Query<(&Transform, Option<&Mouldy>, Option<&ScareCat>)>,
+    mouldy_cheeses: Query<&Transform, With<Mouldy>>,
+    scare_cats: Query<&Transform, With<ScareCat>>,
     pathfinding: Res<PathfindingMatrix>,
     settings: Res<Settings>,
+    time: Res<Time>,
 ) {
-    for (rat_entity, rat, rat_transform, goal) in rats.iter() {
+    for (rat_entity, rat, rat_transform, goal, mut panic) in rats.iter_mut() {
+        if let Some(ref mut panic) = panic {
+            panic.timer.tick(time.delta());
+        }
+
+        let rat_coord = pathfinding
+            .grid_coord(rat_transform.translation)
+            .unwrap_or((0, 0));
+
+        let avoided: Vec<(usize, usize)> = mouldy_cheeses
+            .iter()
+            .filter_map(|transform| {
+                if rat.smell > 0 {
+                    pathfinding.grid_coord(transform.translation)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
         if let Some(goal) = goal {
             let goal_translation = pathfinding.translation(&goal.0, rat_transform.translation.y);
             if goal_translation.distance(rat_transform.translation) > settings.min_distance {
@@ -1196,36 +1241,112 @@ fn set_goal(
                 commands.entity(rat_entity).insert(velocity);
                 continue;
             } else {
-                // Stop, aimlessly
                 commands
                     .entity(rat_entity)
                     .insert(Velocity::zero())
-                    .remove::<Goal>()
-                    .insert(Rest(Timer::from_seconds(
-                        match rat.appetite {
-                            0 => settings.max_rest_sec,
-                            1 => settings.max_rest_sec * 0.3,
-                            _ => 0.0,
-                        },
-                        TimerMode::Once,
-                    )));
+                    .remove::<Goal>();
+
+                if let Some(panic) = panic {
+                    if panic.timer.finished() {
+                        commands.entity(rat_entity).remove::<Panic>();
+                    } else {
+                        // Choose direction
+                        let mut paths = pathfinding
+                            .grid
+                            .iter()
+                            .filter_map(|goal| {
+                                astar(
+                                    &panic.coord,
+                                    |p| {
+                                        pathfinding
+                                            .without(&avoided)
+                                            .grid
+                                            .neighbours(*p)
+                                            .into_iter()
+                                            .map(|p| (p, 1))
+                                            .collect::<Vec<_>>()
+                                    },
+                                    |p| pathfinding.grid.distance(*p, goal) / 3,
+                                    |p| *p == goal,
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                        paths.sort_by_key(|(_path, distance)| *distance);
+                        paths.reverse();
+
+                        let paths_to_safe_space = paths
+                            .into_iter()
+                            .filter_map(|(path, _)| {
+                                path.last().and_then(|goal| {
+                                    astar(
+                                        &rat_coord,
+                                        |p| {
+                                            pathfinding
+                                                .without(&avoided)
+                                                .grid
+                                                .neighbours(*p)
+                                                .into_iter()
+                                                .map(|p| (p, 1))
+                                                .collect::<Vec<_>>()
+                                        },
+                                        |p| pathfinding.grid.distance(*p, *goal) / 3,
+                                        |p| *p == *goal,
+                                    )
+                                })
+                            })
+                            .take(10)
+                            .collect::<Vec<_>>();
+
+                        let mut rng = thread_rng();
+                        let path_to_safe_space = paths_to_safe_space.choose(&mut rng);
+
+                        if let Some((path, _)) = path_to_safe_space {
+                            let destination = match *path.as_slice() {
+                                [_, second, ..] => Some(second),
+                                [first, ..] => Some(first),
+                                [] => None,
+                            };
+
+                            if let Some(destination) = destination {
+                                commands.entity(rat_entity).insert(Goal(destination));
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                if rat.fear > 0 {
+                    // Check panic
+                    let scary_tiles = scare_cats
+                        .iter()
+                        .filter_map(|transform| pathfinding.grid_coord(transform.translation))
+                        .collect::<Vec<_>>();
+                    let neighbors = pathfinding.grid.neighbours(rat_coord);
+                    let closest_scare_cat = neighbors.iter().find(|n| scary_tiles.contains(n));
+                    if let Some(panic_coord) = closest_scare_cat {
+                        // Panic
+                        commands.entity(rat_entity).insert(Panic {
+                            coord: *panic_coord,
+                            timer: Timer::from_seconds(
+                                1.0 * (rat.fear as f32).pow(2.),
+                                TimerMode::Once,
+                            ),
+                        });
+                        continue;
+                    }
+                }
+                // Rest
+                commands.entity(rat_entity).insert(Rest(Timer::from_seconds(
+                    match rat.appetite {
+                        0 => settings.max_rest_sec,
+                        1 => settings.max_rest_sec * 0.3,
+                        _ => 0.0,
+                    },
+                    TimerMode::Once,
+                )));
                 continue;
             }
         }
-
-        let avoided: Vec<(usize, usize)> = obstacles
-            .iter()
-            .filter_map(|(transform, mouldy, scare_cat)| {
-                if mouldy.is_some() && rat.smell > 0 {
-                    Some(transform)
-                } else if scare_cat.is_some() {
-                    Some(transform)
-                } else {
-                    None
-                }
-            })
-            .filter_map(|transform| pathfinding.grid_coord(transform.translation))
-            .collect();
 
         if rat.appetite > 0 {
             /****************************************************************/
@@ -1241,32 +1362,29 @@ fn set_goal(
             let mut paths = cheese
                 .iter()
                 .filter_map(|cheese| {
-                    pathfinding
-                        .grid_coord(rat_transform.translation)
-                        .zip(pathfinding.grid_coord(cheese.translation))
-                        .and_then(|(start, goal)| {
-                            let distance = rat_transform.translation.distance(cheese.translation);
-                            if distance < smell_distance {
-                                let smell_intencity = (smell_distance - distance).round() as i32;
-                                astar(
-                                    &start,
-                                    |p| {
-                                        pathfinding
-                                            .without(&avoided)
-                                            .grid
-                                            .neighbours(*p)
-                                            .into_iter()
-                                            .map(|p| (p, 1))
-                                            .collect::<Vec<_>>()
-                                    },
-                                    |p| pathfinding.grid.distance(*p, goal) / 3,
-                                    |p| *p == goal,
-                                )
-                                .map(|(path, _cost)| (path, smell_intencity))
-                            } else {
-                                None
-                            }
-                        })
+                    pathfinding.grid_coord(cheese.translation).and_then(|goal| {
+                        let distance = rat_transform.translation.distance(cheese.translation);
+                        if distance < smell_distance {
+                            let smell_intencity = (smell_distance - distance).round() as i32;
+                            astar(
+                                &rat_coord,
+                                |p| {
+                                    pathfinding
+                                        .without(&avoided)
+                                        .grid
+                                        .neighbours(*p)
+                                        .into_iter()
+                                        .map(|p| (p, 1))
+                                        .collect::<Vec<_>>()
+                                },
+                                |p| pathfinding.grid.distance(*p, goal) / 3,
+                                |p| *p == goal,
+                            )
+                            .map(|(path, _cost)| (path, smell_intencity))
+                        } else {
+                            None
+                        }
+                    })
                 })
                 .collect::<Vec<_>>();
 
@@ -1287,17 +1405,12 @@ fn set_goal(
         }
         // Roam
         {
-            use rand::seq::SliceRandom;
-            use rand::thread_rng;
-
             let mut rng = thread_rng();
-            if let Some(rat_coord) = pathfinding.grid_coord(rat_transform.translation) {
-                let neighbors = pathfinding.without(&avoided).grid.neighbours(rat_coord);
-                let destination = neighbors.choose(&mut rng);
-                if let Some(destination) = destination {
-                    commands.entity(rat_entity).insert(Goal(*destination));
-                    continue;
-                }
+            let neighbors = pathfinding.without(&avoided).grid.neighbours(rat_coord);
+            let destination = neighbors.choose(&mut rng);
+            if let Some(destination) = destination {
+                commands.entity(rat_entity).insert(Goal(*destination));
+                continue;
             }
         }
     }
@@ -1340,7 +1453,7 @@ fn eat_food(
                             rat.appetite = (rat.appetite - 1).clamp(0, 2);
                             commands.entity(cheese).insert(Disappearing {
                                 effect: DisappearingEffect::ScaleToNothing,
-                                ..Default::default()
+                                ..default()
                             });
                         }
                     }
@@ -1431,7 +1544,7 @@ fn rat_moving_animation(
             if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
                 let anim = &gltf.named_animations["anim-rat-run-cycle"];
                 animation_player
-                    .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                    .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
                     .repeat();
             }
         }
@@ -1448,7 +1561,7 @@ fn rat_idle_animation(
             if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
                 let anim = &gltf.named_animations["anim-rat-idle"];
                 animation_player
-                    .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                    .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
                     .repeat();
             }
         }
