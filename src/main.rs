@@ -1178,7 +1178,7 @@ fn find_cheese(
 
                 if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
                     let anim = &gltf.named_animations["anim-rat-run-cycle"];
-                    animation_player.start(anim.clone()).repeat();
+                    animation_player.start(anim.clone_weak()).repeat();
                 }
 
                 continue;
@@ -1305,12 +1305,14 @@ fn eat_food(
                     }
 
                     if let (Some(rat), Some(cheese)) = (rat_entity, cheese_entity) {
-                        // Eat cheese
                         let (_, mut rat) = rats.get_mut(rat).unwrap();
-                        rat.appetite = (rat.appetite - 1).clamp(0, 2);
-                        commands
-                            .entity(cheese)
-                            .insert(Disappearing(Timer::from_seconds(1.0, TimerMode::Once)));
+                        if rat.appetite > 0 {
+                            // Eat cheese
+                            rat.appetite = (rat.appetite - 1).clamp(0, 2);
+                            commands
+                                .entity(cheese)
+                                .insert(Disappearing(Timer::from_seconds(1.0, TimerMode::Once)));
+                        }
                     }
                 }
             }
