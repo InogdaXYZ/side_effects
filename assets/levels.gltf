@@ -878,18 +878,18 @@
 			"translation":[
 				5,
 				0,
-				-3.9000000953674316
+				-4
 			]
 		},
 		{
 			"mesh":32,
-			"name":"mouldy-cheese.001"
+			"name":"mouldy-cheese"
 		},
 		{
 			"children":[
 				77
 			],
-			"name":"mouldy-cheese",
+			"name":"mouldy-cheese.001",
 			"translation":[
 				3,
 				0,
