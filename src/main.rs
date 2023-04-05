@@ -43,6 +43,12 @@ fn main() {
         .add_systems(
             (cleanup::<Camera>, cleanup::<PreloaderPoint>).in_schedule(OnExit(AppState::Loading)),
         )
+        .add_systems((
+            setup_entities,
+            disappearing,
+            rat_moving_animation,
+            rat_idle_animation,
+        ))
         // Title screen
         .add_systems(
             (spawn_scene, setup_title_screen)
@@ -58,9 +64,6 @@ fn main() {
                 medicine_property_button,
                 test_medicine_button,
                 experiment_button,
-                disappearing,
-                rat_moving_animation,
-                rat_idle_animation,
             )
                 .in_set(OnUpdate(AppState::InGame)),
         )
@@ -74,13 +77,7 @@ fn main() {
         .add_system(adjust_rendering.in_set(OnUpdate(GameState::Planning)))
         // Conducting experiment
         .add_systems(
-            (
-                cleanup::<InvisibleWalls>,
-                setup_pathfinding,
-                setup_entities,
-                apply_system_buffers,
-                open_box,
-            )
+            (cleanup::<InvisibleWalls>, setup_pathfinding, open_box)
                 .chain()
                 .in_schedule(OnEnter(GameState::Experimenting)),
         )
@@ -986,7 +983,7 @@ fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Tran
     let tiles = named_entities
         .iter()
         .filter_map(|(name, transform)| {
-            if name.starts_with("tile") {
+            if name.starts_with("tile.") {
                 Some(transform)
             } else {
                 None
@@ -1080,7 +1077,7 @@ struct Cheese;
 
 fn setup_entities(
     mut commands: Commands,
-    named_entities: Query<(Entity, &Name)>,
+    named_entities: Query<(Entity, &Name), Added<Name>>,
     medicines: Res<Medicines>,
 ) {
     for (entity, name) in named_entities.iter() {
@@ -1096,7 +1093,7 @@ fn setup_entities(
                 .entity(entity)
                 .insert((
                     Rat::default().with_medicines(&medicines.0),
-                    Rest(Timer::from_seconds(1.0, TimerMode::Once)),
+                    Rest(Timer::from_seconds(0.5, TimerMode::Once)),
                     RigidBody::Dynamic,
                     KinematicCharacterController::default(),
                     LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Z,
@@ -1158,30 +1155,34 @@ struct Goal((usize, usize));
 
 fn rat_moving_animation(
     mut rats: Query<&mut AnimationPlayer, (With<Rat>, Added<Goal>)>,
-    my: Res<MyAssets>,
+    my: Option<Res<MyAssets>>,
     assets_gltf: Res<Assets<Gltf>>,
 ) {
-    for mut animation_player in rats.iter_mut() {
-        if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-            let anim = &gltf.named_animations["anim-rat-run-cycle"];
-            animation_player
-                .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
-                .repeat();
+    if let Some(my) = my {
+        for mut animation_player in rats.iter_mut() {
+            if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+                let anim = &gltf.named_animations["anim-rat-run-cycle"];
+                animation_player
+                    .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                    .repeat();
+            }
         }
     }
 }
 
 fn rat_idle_animation(
     mut rats: Query<&mut AnimationPlayer, (With<Rat>, Added<Rest>)>,
-    my: Res<MyAssets>,
+    my: Option<Res<MyAssets>>,
     assets_gltf: Res<Assets<Gltf>>,
 ) {
-    for mut animation_player in rats.iter_mut() {
-        if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-            let anim = &gltf.named_animations["anim-rat-idle"];
-            animation_player
-                .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
-                .repeat();
+    if let Some(my) = my {
+        for mut animation_player in rats.iter_mut() {
+            if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+                let anim = &gltf.named_animations["anim-rat-idle"];
+                animation_player
+                    .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                    .repeat();
+            }
         }
     }
 }
