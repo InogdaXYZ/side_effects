@@ -107,7 +107,7 @@ impl Default for Settings {
             rat_lin_speed: 4.2,
             rat_ang_speed: 20.0,
             min_distance: 0.2,
-            max_rest_sec: 0.6,
+            max_rest_sec: 1.0,
         }
     }
 }
@@ -1207,7 +1207,11 @@ fn find_cheese(
                     .insert(Velocity::zero())
                     .remove::<Goal>()
                     .insert(Rest(Timer::from_seconds(
-                        (settings.max_rest_sec * (2 - rat.appetite) as f32 / 2.).max(0.0),
+                        match rat.appetite {
+                            0 => settings.max_rest_sec,
+                            1 => settings.max_rest_sec * 0.3,
+                            _ => 0.0,
+                        },
                         TimerMode::Once,
                     )));
                 continue;
