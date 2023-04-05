@@ -1,5 +1,7 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+use std::time::Duration;
+
 use bevy::{
     gltf::Gltf,
     pbr::{ClusterConfig, ClusterFarZMode},
@@ -57,6 +59,8 @@ fn main() {
                 test_medicine_button,
                 experiment_button,
                 disappearing,
+                rat_moving_animation,
+                rat_idle_animation,
             )
                 .in_set(OnUpdate(AppState::InGame)),
         )
@@ -1092,6 +1096,7 @@ fn setup_entities(
                 .entity(entity)
                 .insert((
                     Rat::default().with_medicines(&medicines.0),
+                    Rest(Timer::from_seconds(1.0, TimerMode::Once)),
                     RigidBody::Dynamic,
                     KinematicCharacterController::default(),
                     LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Z,
@@ -1151,36 +1156,49 @@ fn rest(mut commands: Commands, mut resting: Query<(Entity, &mut Rest)>, time: R
 #[derive(Component, Debug)]
 struct Goal((usize, usize));
 
-fn find_cheese(
-    mut commands: Commands,
-    mut rats: Query<
-        (
-            Entity,
-            &Rat,
-            &Transform,
-            &mut AnimationPlayer,
-            Option<&Goal>,
-        ),
-        Without<Rest>,
-    >,
-    cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
-    pathfinding: Res<PathfindingMatrix>,
-    settings: Res<Settings>,
+fn rat_moving_animation(
+    mut rats: Query<&mut AnimationPlayer, (With<Rat>, Added<Goal>)>,
     my: Res<MyAssets>,
     assets_gltf: Res<Assets<Gltf>>,
 ) {
-    for (rat_entity, rat, rat_transform, mut animation_player, goal) in rats.iter_mut() {
+    for mut animation_player in rats.iter_mut() {
+        if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+            let anim = &gltf.named_animations["anim-rat-run-cycle"];
+            animation_player
+                .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                .repeat();
+        }
+    }
+}
+
+fn rat_idle_animation(
+    mut rats: Query<&mut AnimationPlayer, (With<Rat>, Added<Rest>)>,
+    my: Res<MyAssets>,
+    assets_gltf: Res<Assets<Gltf>>,
+) {
+    for mut animation_player in rats.iter_mut() {
+        if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+            let anim = &gltf.named_animations["anim-rat-idle"];
+            animation_player
+                .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                .repeat();
+        }
+    }
+}
+
+fn find_cheese(
+    mut commands: Commands,
+    rats: Query<(Entity, &Rat, &Transform, Option<&Goal>), Without<Rest>>,
+    cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
+    pathfinding: Res<PathfindingMatrix>,
+    settings: Res<Settings>,
+) {
+    for (rat_entity, rat, rat_transform, goal) in rats.iter() {
         if let Some(goal) = goal {
             let goal_translation = pathfinding.translation(&goal.0, rat_transform.translation.y);
             if goal_translation.distance(rat_transform.translation) > settings.min_distance {
                 let velocity = Rat::velocity(rat_transform, &goal_translation, &settings);
                 commands.entity(rat_entity).insert(velocity);
-
-                if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-                    let anim = &gltf.named_animations["anim-rat-run-cycle"];
-                    animation_player.start(anim.clone_weak()).repeat();
-                }
-
                 continue;
             } else {
                 // Stop, aimlessly
@@ -1192,9 +1210,6 @@ fn find_cheese(
                         (settings.max_rest_sec * (2 - rat.appetite) as f32 / 2.).max(0.0),
                         TimerMode::Once,
                     )));
-
-                animation_player.stop_repeating();
-
                 continue;
             }
         }
@@ -1309,9 +1324,10 @@ fn eat_food(
                         if rat.appetite > 0 {
                             // Eat cheese
                             rat.appetite = (rat.appetite - 1).clamp(0, 2);
-                            commands
-                                .entity(cheese)
-                                .insert(Disappearing(Timer::from_seconds(1.0, TimerMode::Once)));
+                            commands.entity(cheese).insert(Disappearing {
+                                effect: DisappearingEffect::ScaleToNothing,
+                                ..Default::default()
+                            });
                         }
                     }
                 }
@@ -1322,7 +1338,25 @@ fn eat_food(
 }
 
 #[derive(Component, Debug)]
-struct Disappearing(Timer);
+struct Disappearing {
+    timer: Timer,
+    effect: DisappearingEffect,
+}
+
+impl Default for Disappearing {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(1.0, TimerMode::Once),
+            effect: DisappearingEffect::NoEffect,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum DisappearingEffect {
+    ScaleToNothing,
+    NoEffect,
+}
 
 fn disappearing(
     mut commands: Commands,
@@ -1330,10 +1364,11 @@ fn disappearing(
     time: Res<Time>,
 ) {
     for (entity, mut disappearing, mut transform) in entites.iter_mut() {
-        let left = disappearing.0.tick(time.delta()).percent_left();
-        transform.scale = Vec3::new(left, left, left);
-        if disappearing.0.just_finished() {
+        if disappearing.timer.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn_recursive();
+        } else if disappearing.effect == DisappearingEffect::ScaleToNothing {
+            let left = disappearing.timer.percent_left();
+            transform.scale = Vec3::new(left, left, left);
         }
     }
 }
@@ -1348,16 +1383,15 @@ fn open_box(
     if let Some(my) = my {
         if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
             for (box_entity, mut animation_player) in boxes.iter_mut() {
+                dbg!(&gltf.animations.len());
                 let anim = &gltf.named_animations["anim-box-open"];
                 animation_player.start(anim.clone()).stop_repeating();
 
                 if let Some(clip) = animation_clips.get(anim) {
-                    commands
-                        .entity(box_entity)
-                        .insert(Disappearing(Timer::from_seconds(
-                            clip.duration(),
-                            TimerMode::Once,
-                        )));
+                    commands.entity(box_entity).insert(Disappearing {
+                        timer: Timer::from_seconds(clip.duration(), TimerMode::Once),
+                        ..Default::default()
+                    });
                 }
             }
         }
