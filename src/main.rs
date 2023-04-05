@@ -1153,17 +1153,34 @@ struct Goal((usize, usize));
 
 fn find_cheese(
     mut commands: Commands,
-    rats: Query<(Entity, &Rat, &Transform, Option<&Goal>), Without<Rest>>,
+    mut rats: Query<
+        (
+            Entity,
+            &Rat,
+            &Transform,
+            &mut AnimationPlayer,
+            Option<&Goal>,
+        ),
+        Without<Rest>,
+    >,
     cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
     pathfinding: Res<PathfindingMatrix>,
     settings: Res<Settings>,
+    my: Res<MyAssets>,
+    assets_gltf: Res<Assets<Gltf>>,
 ) {
-    for (rat_entity, rat, rat_transform, goal) in rats.iter() {
+    for (rat_entity, rat, rat_transform, mut animation_player, goal) in rats.iter_mut() {
         if let Some(goal) = goal {
             let goal_translation = pathfinding.translation(&goal.0, rat_transform.translation.y);
             if goal_translation.distance(rat_transform.translation) > settings.min_distance {
                 let velocity = Rat::velocity(rat_transform, &goal_translation, &settings);
                 commands.entity(rat_entity).insert(velocity);
+
+                if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+                    let anim = &gltf.named_animations["anim-rat-run-cycle"];
+                    animation_player.start(anim.clone()).repeat();
+                }
+
                 continue;
             } else {
                 // Stop, aimlessly
@@ -1175,6 +1192,9 @@ fn find_cheese(
                         (settings.max_rest_sec * (2 - rat.appetite) as f32 / 2.).max(0.0),
                         TimerMode::Once,
                     )));
+
+                animation_player.stop_repeating();
+
                 continue;
             }
         }
@@ -1326,11 +1346,10 @@ fn open_box(
     if let Some(my) = my {
         if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
             for (box_entity, mut animation_player) in boxes.iter_mut() {
-                animation_player
-                    .start(gltf.named_animations["boxAction"].clone())
-                    .stop_repeating();
+                let anim = &gltf.named_animations["anim-box-open"];
+                animation_player.start(anim.clone()).stop_repeating();
 
-                if let Some(clip) = animation_clips.get(&gltf.named_animations["boxAction"]) {
+                if let Some(clip) = animation_clips.get(anim) {
                     commands
                         .entity(box_entity)
                         .insert(Disappearing(Timer::from_seconds(
