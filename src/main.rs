@@ -77,12 +77,17 @@ fn main() {
         .add_system(adjust_rendering.in_set(OnUpdate(GameState::Planning)))
         // Conducting experiment
         .add_systems(
-            (cleanup::<InvisibleWalls>, setup_pathfinding, open_box)
+            (
+                cleanup::<InvisibleWalls>,
+                setup_pathfinding,
+                give_medicines,
+                open_box,
+            )
                 .chain()
                 .in_schedule(OnEnter(GameState::Experimenting)),
         )
         .add_systems(
-            (find_cheese, eat_food, rest)
+            (set_goal, eat_food, rest)
                 .in_set(OnUpdate(AppState::InGame))
                 .in_set(OnUpdate(GameState::Experimenting)),
         )
@@ -884,6 +889,88 @@ fn experiment_button(
     }
 }
 
+/*************************************************************************/
+/*    ######## ##    ## ######## #### ######## #### ########  ######     */
+/*    ##       ###   ##    ##     ##     ##     ##  ##       ##    ##    */
+/*    ##       ####  ##    ##     ##     ##     ##  ##       ##          */
+/*    ######   ## ## ##    ##     ##     ##     ##  ######    ######     */
+/*    ##       ##  ####    ##     ##     ##     ##  ##             ##    */
+/*    ##       ##   ###    ##     ##     ##     ##  ##       ##    ##    */
+/*    ######## ##    ##    ##    ####    ##    #### ########  ######     */
+/*************************************************************************/
+
+#[derive(Component)]
+struct Cheese;
+
+#[derive(Component, Debug)]
+struct Mouldy;
+
+#[derive(Component, Debug)]
+struct CartonBox;
+
+#[derive(Component, Debug)]
+struct ScareCat;
+
+fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name), Added<Name>>) {
+    for (entity, name) in named_entities.iter() {
+        if name.starts_with("rat.") {
+            // 0.5 x 0.2 x 0.1
+            let collider = commands
+                .spawn((
+                    Collider::capsule_z(0.25, 0.1),
+                    TransformBundle::from_transform(Transform::from_xyz(0., 0.1, 0.)),
+                ))
+                .id();
+            commands
+                .entity(entity)
+                .insert((
+                    Rat::default(),
+                    Rest(Timer::from_seconds(0.5, TimerMode::Once)),
+                    RigidBody::Dynamic,
+                    KinematicCharacterController::default(),
+                    LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Z,
+                ))
+                .add_child(collider);
+        }
+
+        if name.starts_with("cheese.") || name.starts_with("mouldy-cheese.") {
+            let sensor = commands
+                .spawn((
+                    Collider::cylinder(0.25, 0.25),
+                    Sensor,
+                    ActiveCollisionTypes::default(),
+                    ActiveEvents::COLLISION_EVENTS,
+                    TransformBundle::from_transform(Transform::from_xyz(0., 0.25, 0.)),
+                ))
+                .id();
+            commands
+                .entity(entity)
+                .insert((Cheese, RigidBody::Fixed))
+                .add_child(sensor);
+            if name.starts_with("mouldy-cheese.") {
+                commands.entity(entity).insert(Mouldy);
+            }
+        }
+
+        if name.starts_with("tile.") {
+            let collider = commands
+                .spawn((
+                    Collider::cuboid(0.5, 0.065, 0.5),
+                    TransformBundle::from_transform(Transform::from_xyz(0., -0.065, 0.)),
+                ))
+                .id();
+            commands
+                .entity(entity)
+                .insert((Tile, RigidBody::Fixed))
+                .add_child(collider);
+        }
+
+        if name.starts_with("box.") {
+            commands.entity(entity).insert(CartonBox);
+        }
+    }
+}
+
 /*********************************************************************************************************/
 /*    ########     ###    ######## ##     ## ######## #### ##    ## ########  #### ##    ##  ######      */
 /*    ##     ##   ## ##      ##    ##     ## ##        ##  ###   ## ##     ##  ##  ###   ## ##    ##     */
@@ -954,6 +1041,14 @@ impl PathfindingMatrix {
         let z = (self.min_z - 1 + coord.1 as i32) as f32 + self.dz;
         Vec3::new(x, y, z)
     }
+
+    fn without(&self, avoided: &[(usize, usize)]) -> Self {
+        let mut grid = self.grid.clone();
+        for coord in avoided {
+            grid.remove_vertex(*coord);
+        }
+        Self { grid, ..*self }
+    }
 }
 
 #[test]
@@ -979,18 +1074,11 @@ fn test_pathfinding_coord_conversion() {
 #[derive(Component, Debug)]
 struct InvisibleWalls;
 
-fn setup_pathfinding(mut commands: Commands, named_entities: Query<(&Name, &Transform)>) {
-    let tiles = named_entities
-        .iter()
-        .filter_map(|(name, transform)| {
-            if name.starts_with("tile.") {
-                Some(transform)
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-    let pathfinding = PathfindingMatrix::from_coordinates(&tiles);
+#[derive(Component, Debug)]
+struct Tile;
+
+fn setup_pathfinding(mut commands: Commands, tiles: Query<&Transform, With<Tile>>) {
+    let pathfinding = PathfindingMatrix::from_coordinates(&tiles.iter().collect::<Vec<_>>());
 
     // Add invisible wall colliders
     let mut inverted_grid = pathfinding.grid.clone();
@@ -1032,6 +1120,15 @@ struct Rat {
     smell: i32,
 }
 
+impl Default for Rat {
+    fn default() -> Self {
+        Rat {
+            appetite: 1,
+            smell: 1,
+        }
+    }
+}
+
 impl Rat {
     fn with_medicines(&self, medicines: &[Medicine]) -> Self {
         let mut new = *self;
@@ -1063,81 +1160,11 @@ impl Rat {
     }
 }
 
-impl Default for Rat {
-    fn default() -> Self {
-        Rat {
-            appetite: 1,
-            smell: 1,
-        }
+fn give_medicines(mut rats: Query<&mut Rat>, medicines: Res<Medicines>) {
+    for mut rat in rats.iter_mut() {
+        *rat = Rat::default().with_medicines(&medicines.0);
     }
 }
-
-#[derive(Component)]
-struct Cheese;
-
-fn setup_entities(
-    mut commands: Commands,
-    named_entities: Query<(Entity, &Name), Added<Name>>,
-    medicines: Res<Medicines>,
-) {
-    for (entity, name) in named_entities.iter() {
-        if name.starts_with("rat.") {
-            // 0.5 x 0.2 x 0.1
-            let collider = commands
-                .spawn((
-                    Collider::capsule_z(0.25, 0.1),
-                    TransformBundle::from_transform(Transform::from_xyz(0., 0.1, 0.)),
-                ))
-                .id();
-            commands
-                .entity(entity)
-                .insert((
-                    Rat::default().with_medicines(&medicines.0),
-                    Rest(Timer::from_seconds(0.5, TimerMode::Once)),
-                    RigidBody::Dynamic,
-                    KinematicCharacterController::default(),
-                    LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Z,
-                ))
-                .add_child(collider);
-        }
-
-        if name.starts_with("cheese.") {
-            let sensor = commands
-                .spawn((
-                    Collider::cylinder(0.25, 0.25),
-                    Sensor,
-                    ActiveCollisionTypes::default(),
-                    ActiveEvents::COLLISION_EVENTS,
-                    TransformBundle::from_transform(Transform::from_xyz(0., 0.25, 0.)),
-                ))
-                .id();
-            commands
-                .entity(entity)
-                .insert((Cheese, RigidBody::Fixed))
-                .add_child(sensor);
-        }
-
-        if name.starts_with("tile.") {
-            let collider = commands
-                .spawn((
-                    Collider::cuboid(0.5, 0.065, 0.5),
-                    TransformBundle::from_transform(Transform::from_xyz(0., -0.065, 0.)),
-                ))
-                .id();
-            commands
-                .entity(entity)
-                .insert(RigidBody::Fixed)
-                .add_child(collider);
-        }
-
-        if name.starts_with("box.") {
-            commands.entity(entity).insert(CartonBox);
-        }
-    }
-}
-
-#[derive(Component, Debug)]
-struct CartonBox;
 
 #[derive(Component, Debug)]
 struct Rest(Timer);
@@ -1153,44 +1180,11 @@ fn rest(mut commands: Commands, mut resting: Query<(Entity, &mut Rest)>, time: R
 #[derive(Component, Debug)]
 struct Goal((usize, usize));
 
-fn rat_moving_animation(
-    mut rats: Query<&mut AnimationPlayer, (With<Rat>, Added<Goal>)>,
-    my: Option<Res<MyAssets>>,
-    assets_gltf: Res<Assets<Gltf>>,
-) {
-    if let Some(my) = my {
-        for mut animation_player in rats.iter_mut() {
-            if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-                let anim = &gltf.named_animations["anim-rat-run-cycle"];
-                animation_player
-                    .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
-                    .repeat();
-            }
-        }
-    }
-}
-
-fn rat_idle_animation(
-    mut rats: Query<&mut AnimationPlayer, (With<Rat>, Added<Rest>)>,
-    my: Option<Res<MyAssets>>,
-    assets_gltf: Res<Assets<Gltf>>,
-) {
-    if let Some(my) = my {
-        for mut animation_player in rats.iter_mut() {
-            if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-                let anim = &gltf.named_animations["anim-rat-idle"];
-                animation_player
-                    .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
-                    .repeat();
-            }
-        }
-    }
-}
-
-fn find_cheese(
+fn set_goal(
     mut commands: Commands,
     rats: Query<(Entity, &Rat, &Transform, Option<&Goal>), Without<Rest>>,
     cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
+    obstacles: Query<(&Transform, Option<&Mouldy>, Option<&ScareCat>)>,
     pathfinding: Res<PathfindingMatrix>,
     settings: Res<Settings>,
 ) {
@@ -1218,6 +1212,21 @@ fn find_cheese(
                 continue;
             }
         }
+
+        let avoided: Vec<(usize, usize)> = obstacles
+            .iter()
+            .filter_map(|(transform, mouldy, scare_cat)| {
+                if mouldy.is_some() && rat.smell > 0 {
+                    Some(transform)
+                } else if scare_cat.is_some() {
+                    Some(transform)
+                } else {
+                    None
+                }
+            })
+            .filter_map(|transform| pathfinding.grid_coord(transform.translation))
+            .collect();
+
         if rat.appetite > 0 {
             /****************************************************************/
             /*     ######  ##     ## ######## ########  ######  ########    */
@@ -1229,7 +1238,6 @@ fn find_cheese(
             /*     ######  ##     ## ######## ########  ######  ########    */
             /****************************************************************/
             let smell_distance = 5.0 * rat.smell as f32;
-            // @TODO: if appetite is especially high, rat starts actively looking for food, even if can't smell it
             let mut paths = cheese
                 .iter()
                 .filter_map(|cheese| {
@@ -1244,6 +1252,7 @@ fn find_cheese(
                                     &start,
                                     |p| {
                                         pathfinding
+                                            .without(&avoided)
                                             .grid
                                             .neighbours(*p)
                                             .into_iter()
@@ -1283,7 +1292,7 @@ fn find_cheese(
 
             let mut rng = thread_rng();
             if let Some(rat_coord) = pathfinding.grid_coord(rat_transform.translation) {
-                let neighbors = pathfinding.grid.neighbours(rat_coord);
+                let neighbors = pathfinding.without(&avoided).grid.neighbours(rat_coord);
                 let destination = neighbors.choose(&mut rng);
                 if let Some(destination) = destination {
                     commands.entity(rat_entity).insert(Goal(*destination));
@@ -1342,6 +1351,16 @@ fn eat_food(
     }
 }
 
+/**************************************************************************************/
+/*       ###    ##    ## #### ##     ##    ###    ######## ####  #######  ##    ##    */
+/*      ## ##   ###   ##  ##  ###   ###   ## ##      ##     ##  ##     ## ###   ##    */
+/*     ##   ##  ####  ##  ##  #### ####  ##   ##     ##     ##  ##     ## ####  ##    */
+/*    ##     ## ## ## ##  ##  ## ### ## ##     ##    ##     ##  ##     ## ## ## ##    */
+/*    ######### ##  ####  ##  ##     ## #########    ##     ##  ##     ## ##  ####    */
+/*    ##     ## ##   ###  ##  ##     ## ##     ##    ##     ##  ##     ## ##   ###    */
+/*    ##     ## ##    ## #### ##     ## ##     ##    ##    ####  #######  ##    ##    */
+/**************************************************************************************/
+
 #[derive(Component, Debug)]
 struct Disappearing {
     timer: Timer,
@@ -1388,7 +1407,6 @@ fn open_box(
     if let Some(my) = my {
         if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
             for (box_entity, mut animation_player) in boxes.iter_mut() {
-                dbg!(&gltf.animations.len());
                 let anim = &gltf.named_animations["anim-box-open"];
                 animation_player.start(anim.clone()).stop_repeating();
 
@@ -1398,6 +1416,40 @@ fn open_box(
                         ..Default::default()
                     });
                 }
+            }
+        }
+    }
+}
+
+fn rat_moving_animation(
+    mut rats: Query<&mut AnimationPlayer, (With<Rat>, Added<Goal>)>,
+    my: Option<Res<MyAssets>>,
+    assets_gltf: Res<Assets<Gltf>>,
+) {
+    if let Some(my) = my {
+        for mut animation_player in rats.iter_mut() {
+            if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+                let anim = &gltf.named_animations["anim-rat-run-cycle"];
+                animation_player
+                    .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                    .repeat();
+            }
+        }
+    }
+}
+
+fn rat_idle_animation(
+    mut rats: Query<&mut AnimationPlayer, (With<Rat>, Added<Rest>)>,
+    my: Option<Res<MyAssets>>,
+    assets_gltf: Res<Assets<Gltf>>,
+) {
+    if let Some(my) = my {
+        for mut animation_player in rats.iter_mut() {
+            if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+                let anim = &gltf.named_animations["anim-rat-idle"];
+                animation_player
+                    .start_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                    .repeat();
             }
         }
     }
