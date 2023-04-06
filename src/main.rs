@@ -54,6 +54,7 @@ fn main() {
             disappearing,
             rat_moving_animation,
             rat_idle_animation,
+            stink_animation,
         ))
         // Title screen
         .add_systems(
@@ -534,6 +535,9 @@ struct Cheese;
 struct Mouldy;
 
 #[derive(Component, Debug)]
+struct Stink;
+
+#[derive(Component, Debug)]
 struct CartonBox;
 
 #[derive(Component, Debug)]
@@ -578,6 +582,10 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name),
             if name.starts_with("mouldy-cheese.") {
                 commands.entity(entity).insert(Mouldy);
             }
+        }
+
+        if name.starts_with("stink") {
+            commands.entity(entity).insert(Stink);
         }
 
         if name.starts_with("tile.") {
@@ -1181,6 +1189,23 @@ fn rat_idle_animation(
                 animation_player
                     .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
                     .repeat();
+            }
+        }
+    }
+}
+
+fn stink_animation(
+    mut stinks: Query<&mut AnimationPlayer, Added<Stink>>,
+    my: Option<Res<MyAssets>>,
+    assets_gltf: Res<Assets<Gltf>>,
+) {
+    if let Some(my) = my {
+        for mut animation_player in stinks.iter_mut() {
+            if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+                // let anim = &gltf.named_animations["anim-rat-idle"];
+                // animation_player
+                //     .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                //     .repeat();
             }
         }
     }
