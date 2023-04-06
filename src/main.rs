@@ -385,8 +385,8 @@ fn adjust_rendering(
 ) {
     for (mut projection, mut cluster_config) in cameras.iter_mut() {
         if let Projection::Orthographic(orthographic_projection) = projection.as_mut() {
-            orthographic_projection.scaling_mode = ScalingMode::WindowSize(100.0);
-            orthographic_projection.scale = 1.0;
+            // orthographic_projection.scaling_mode = ScalingMode::WindowSize(100.0);
+            // orthographic_projection.scale = 1.0;
         }
         if let ClusterConfig::FixedZ { z_config, .. } = cluster_config.as_mut() {
             z_config.far_z_mode = ClusterFarZMode::Constant(0.0);
