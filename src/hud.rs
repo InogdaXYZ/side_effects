@@ -155,11 +155,18 @@ pub fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines
                             })
                             .with_children(|parent| {
                                 for (effect, value) in &[
-                                    (MedicineEffect::Appetite, false),
-                                    (MedicineEffect::Fear, false),
-                                    (MedicineEffect::Smell, false),
+                                    (MedicineEffect::Appetite, medicine.report.appetite),
+                                    (MedicineEffect::Fear, medicine.report.fear),
+                                    (MedicineEffect::Smell, medicine.report.smell),
                                 ] {
-                                    parent.spawn(CheckboxBundle::new(effect.positive(), *value));
+                                    parent.spawn((
+                                        ReportEffectCheckbox {
+                                            medicine_index,
+                                            effect: *effect,
+                                            value: 1,
+                                        },
+                                        CheckboxBundle::new(effect.positive(), *value > 0),
+                                    ));
                                 }
                             });
 
@@ -192,11 +199,18 @@ pub fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines
                             })
                             .with_children(|parent| {
                                 for (effect, value) in &[
-                                    (MedicineEffect::Appetite, false),
-                                    (MedicineEffect::Fear, false),
-                                    (MedicineEffect::Smell, false),
+                                    (MedicineEffect::Appetite, medicine.report.appetite),
+                                    (MedicineEffect::Fear, medicine.report.fear),
+                                    (MedicineEffect::Smell, medicine.report.smell),
                                 ] {
-                                    parent.spawn(CheckboxBundle::new(effect.negative(), *value));
+                                    parent.spawn((
+                                        ReportEffectCheckbox {
+                                            medicine_index,
+                                            effect: *effect,
+                                            value: -1,
+                                        },
+                                        CheckboxBundle::new(effect.negative(), *value < 0),
+                                    ));
                                 }
                             });
                     });
@@ -556,6 +570,41 @@ pub fn experiment_button(
                     ExperimentAction::Conduct => next_state.set(GameState::Experimenting),
                     ExperimentAction::Finish => next_state.set(GameState::Planning),
                 }
+            }
+            Interaction::Hovered => {}
+            Interaction::None => {}
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct ReportEffectCheckbox {
+    medicine_index: usize,
+    effect: MedicineEffect,
+    value: i32,
+}
+
+pub fn report_effect_checkbox(
+    mut interaction_query: Query<
+        (&Interaction, &mut Checkbox, &ReportEffectCheckbox),
+        Changed<Interaction>,
+    >,
+    mut medicines: ResMut<Medicines>,
+) {
+    for (interaction, mut checkbox, report_effect) in interaction_query.iter_mut() {
+        match interaction {
+            Interaction::Clicked => {
+                checkbox.checked = !checkbox.checked;
+                medicines.0[report_effect.medicine_index]
+                    .report
+                    .mark_effect(
+                        &report_effect.effect,
+                        if checkbox.checked {
+                            report_effect.value
+                        } else {
+                            -report_effect.value
+                        },
+                    );
             }
             Interaction::Hovered => {}
             Interaction::None => {}

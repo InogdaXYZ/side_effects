@@ -6,7 +6,6 @@ use bevy::{
     gltf::Gltf,
     pbr::{ClusterConfig, ClusterFarZMode},
     prelude::*,
-    render::camera::ScalingMode,
     scene::SceneInstance,
 };
 use bevy_asset_loader::prelude::*;
@@ -74,6 +73,7 @@ fn main() {
                 hud::medicine_test_togle_button,
                 hud::experiment_button,
                 hud::toggle_dev_mode,
+                hud::report_effect_checkbox,
             )
                 .in_set(OnUpdate(AppState::InGame)),
         )
@@ -379,16 +379,12 @@ fn spawn_scene(mut commands: Commands, my: Option<Res<MyAssets>>, assets_gltf: R
 }
 
 fn adjust_rendering(
-    mut cameras: Query<(&mut Projection, &mut ClusterConfig), Added<Camera3d>>,
+    mut cameras: Query<&mut ClusterConfig, Added<Camera3d>>,
     mut point_lights: Query<&mut PointLight, Added<PointLight>>,
     mut spot_lights: Query<&mut SpotLight, Added<SpotLight>>,
     mut directional_lights: Query<&mut DirectionalLight, Added<DirectionalLight>>,
 ) {
-    for (mut projection, mut cluster_config) in cameras.iter_mut() {
-        if let Projection::Orthographic(orthographic_projection) = projection.as_mut() {
-            // orthographic_projection.scaling_mode = ScalingMode::WindowSize(100.0);
-            // orthographic_projection.scale = 1.0;
-        }
+    for mut cluster_config in cameras.iter_mut() {
         if let ClusterConfig::FixedZ { z_config, .. } = cluster_config.as_mut() {
             z_config.far_z_mode = ClusterFarZMode::Constant(0.0);
         }
@@ -439,6 +435,24 @@ pub struct Medicine {
     smell: i32,
     fear: i32,
     in_experiment: bool,
+    report: Report,
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct Report {
+    appetite: i32,
+    smell: i32,
+    fear: i32,
+}
+
+impl Report {
+    fn mark_effect(&mut self, effect: &MedicineEffect, value: i32) {
+        match effect {
+            MedicineEffect::Appetite => self.appetite += value,
+            MedicineEffect::Smell => self.smell += value,
+            MedicineEffect::Fear => self.fear += value,
+        }
+    }
 }
 
 impl Medicine {
