@@ -73,6 +73,7 @@ fn main() {
                 hud::medicine_property_button,
                 hud::medicine_test_togle_button,
                 hud::experiment_button,
+                hud::toggle_dev_mode,
             )
                 .in_set(OnUpdate(AppState::InGame)),
         )

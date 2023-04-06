@@ -16,6 +16,12 @@ use crate::{Fonts, GameState, Medicine, MedicineEffect, Medicines};
 pub struct HUD;
 
 #[derive(Component)]
+pub struct ToogleDevMode;
+
+#[derive(Component)]
+pub struct DevPanel;
+
+#[derive(Component)]
 pub struct ExperimentButton(ExperimentAction);
 
 enum ExperimentAction {
@@ -76,27 +82,39 @@ pub fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines
             .with_children(|parent| {
                 // Title
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
-                            flex_direction: FlexDirection::Column,
-                            max_size: Size {
-                                width: Val::Px(208.),
-                                height: Val::Auto,
+                    .spawn((
+                        MedicineTitleCard(medicine_index),
+                        NodeBundle {
+                            style: Style {
+                                flex_direction: FlexDirection::Column,
+
+                                max_size: Size {
+                                    width: Val::Px(208.),
+                                    height: Val::Auto,
+                                },
+                                padding: UiRect::new(P20, P20, P8, P8),
+                                gap: Size::all(P4),
+                                ..Default::default()
                             },
-                            padding: UiRect::new(P20, P20, P8, P8),
-                            gap: Size::all(P4),
+                            background_color: if medicine.in_experiment {
+                                BG_HIGHLIGHT.into()
+                            } else {
+                                BG_DARK_GRAY.into()
+                            },
                             ..Default::default()
                         },
-                        background_color: BG_DARK_GRAY.into(),
-                        ..Default::default()
-                    })
+                    ))
                     .with_children(|parent| {
                         parent.spawn(
                             TextBundle::from_section(
                                 "Medicine ".to_string() + &medicine.name,
                                 h1(&fonts),
                             )
-                            .with_text_alignment(TextAlignment::Center),
+                            .with_text_alignment(TextAlignment::Center)
+                            .with_style(Style {
+                                align_self: AlignSelf::Center,
+                                ..Default::default()
+                            }),
                         );
 
                         parent.spawn((
@@ -119,16 +137,31 @@ pub fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines
                     .with_children(|parent| {
                         parent.spawn(
                             TextBundle::from_section("Report card".to_string(), h2(&fonts))
-                                .with_text_alignment(TextAlignment::Center),
+                                .with_text_alignment(TextAlignment::Center)
+                                .with_style(Style {
+                                    align_self: AlignSelf::Center,
+                                    ..Default::default()
+                                }),
                         );
 
-                        for (effect, value) in &[
-                            (MedicineEffect::Appetite, false),
-                            (MedicineEffect::Fear, false),
-                            (MedicineEffect::Smell, false),
-                        ] {
-                            parent.spawn(CheckboxBundle::new(effect.positive(), *value));
-                        }
+                        parent
+                            .spawn(NodeBundle {
+                                style: Style {
+                                    flex_direction: FlexDirection::Column,
+                                    gap: Size::all(P4),
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            })
+                            .with_children(|parent| {
+                                for (effect, value) in &[
+                                    (MedicineEffect::Appetite, false),
+                                    (MedicineEffect::Fear, false),
+                                    (MedicineEffect::Smell, false),
+                                ] {
+                                    parent.spawn(CheckboxBundle::new(effect.positive(), *value));
+                                }
+                            });
 
                         parent.spawn(NodeBundle {
                             style: Style {
@@ -141,34 +174,57 @@ pub fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines
 
                         parent.spawn(
                             TextBundle::from_section("Side effects".to_string(), h2(&fonts))
-                                .with_text_alignment(TextAlignment::Center),
+                                .with_text_alignment(TextAlignment::Center)
+                                .with_style(Style {
+                                    align_self: AlignSelf::Center,
+                                    ..Default::default()
+                                }),
                         );
 
-                        for (effect, value) in &[
-                            (MedicineEffect::Appetite, false),
-                            (MedicineEffect::Fear, false),
-                            (MedicineEffect::Smell, false),
-                        ] {
-                            parent.spawn(CheckboxBundle::new(effect.negative(), *value));
-                        }
+                        parent
+                            .spawn(NodeBundle {
+                                style: Style {
+                                    flex_direction: FlexDirection::Column,
+                                    gap: Size::all(P4),
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            })
+                            .with_children(|parent| {
+                                for (effect, value) in &[
+                                    (MedicineEffect::Appetite, false),
+                                    (MedicineEffect::Fear, false),
+                                    (MedicineEffect::Smell, false),
+                                ] {
+                                    parent.spawn(CheckboxBundle::new(effect.negative(), *value));
+                                }
+                            });
                     });
 
                 // Developer
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
-                            flex_direction: FlexDirection::Column,
-                            padding: UiRect::new(P20, P20, P8, P8),
-                            gap: Size::all(P8),
+                    .spawn((
+                        DevPanel,
+                        NodeBundle {
+                            style: Style {
+                                flex_direction: FlexDirection::Column,
+                                padding: UiRect::new(P20, P20, P8, P8),
+                                gap: Size::all(P8),
+                                ..Default::default()
+                            },
+                            background_color: BG_LIGHT_GRAY.into(),
+                            visibility: Visibility::Hidden,
                             ..Default::default()
                         },
-                        background_color: BG_LIGHT_GRAY.into(),
-                        ..Default::default()
-                    })
+                    ))
                     .with_children(|parent| {
                         parent.spawn(
                             TextBundle::from_section("Effects".to_string(), h2(&fonts))
-                                .with_text_alignment(TextAlignment::Center),
+                                .with_text_alignment(TextAlignment::Center)
+                                .with_style(Style {
+                                    align_self: AlignSelf::Center,
+                                    ..Default::default()
+                                }),
                         );
 
                         for (effect, value) in &[
@@ -181,6 +237,7 @@ pub fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines
                                     style: Style {
                                         flex_direction: FlexDirection::Row,
                                         justify_content: JustifyContent::SpaceBetween,
+                                        align_items: AlignItems::Center,
                                         gap: Size::all(P4),
                                         ..Default::default()
                                     },
@@ -214,6 +271,7 @@ pub fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines
                                                                 size: Size::all(P20),
                                                                 justify_content:
                                                                     JustifyContent::Center,
+                                                                align_items: AlignItems::Center,
                                                                 ..Default::default()
                                                             },
                                                             background_color: if value == choice {
@@ -366,8 +424,50 @@ pub fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines
                             ));
                         });
                 });
+
+            parent.spawn((
+                ToogleDevMode,
+                ButtonBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        position: UiRect {
+                            top: Val::Percent(0.0),
+                            left: Val::Percent(0.0),
+                            ..Default::default()
+                        },
+                        size: Size::all(P20),
+                        ..Default::default()
+                    },
+                    background_color: BG_DARK_GRAY.into(),
+                    ..Default::default()
+                }
+            ));
         });
 }
+
+pub fn toggle_dev_mode(
+    interaction_query: Query<&Interaction, (Changed<Interaction>, With<ToogleDevMode>)>,
+    mut dev_panels: Query<&mut Visibility, With<DevPanel>>,
+) {
+    for interaction in interaction_query.iter() {
+        match interaction {
+            Interaction::Clicked => {
+                for mut visibility in dev_panels.iter_mut() {
+                    *visibility = if *visibility == Visibility::Hidden {
+                        Visibility::Visible
+                    } else {
+                        Visibility::Hidden
+                    };
+                }
+            }
+            Interaction::Hovered => {}
+            Interaction::None => {}
+        }
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct MedicineTitleCard(usize);
 
 #[derive(Component, Debug, PartialEq, Eq)]
 pub struct MedicineEffectButton {
@@ -389,11 +489,11 @@ pub fn medicine_property_button(
 
                 for (mut background, button) in buttons.iter_mut() {
                     if button == this_button {
-                        *background = Color::YELLOW.into()
+                        *background = BG_HIGHLIGHT.into()
                     } else if button.medicine_index == this_button.medicine_index
                         && button.effect == this_button.effect
                     {
-                        *background = Color::GRAY.into()
+                        *background = BG_WHITE.into()
                     }
                 }
             }
@@ -411,6 +511,7 @@ pub fn medicine_test_togle_button(
         (&MedicineInTestToggleButton, &Interaction, &mut Checkbox),
         Changed<Interaction>,
     >,
+    mut title_cards: Query<(&MedicineTitleCard, &mut BackgroundColor)>,
     mut medicines: ResMut<Medicines>,
 ) {
     for (this_button, interaction, mut checkbox) in interaction_query.iter_mut() {
@@ -419,6 +520,16 @@ pub fn medicine_test_togle_button(
                 medicines.0[this_button.0].in_experiment =
                     !medicines.0[this_button.0].in_experiment;
                 checkbox.checked = medicines.0[this_button.0].in_experiment;
+
+                for (title_card, mut background_color) in title_cards.iter_mut() {
+                    if title_card.0 == this_button.0 {
+                        background_color.0 = if checkbox.checked {
+                            BG_HIGHLIGHT
+                        } else {
+                            BG_DARK_GRAY
+                        };
+                    }
+                }
             }
             Interaction::Hovered => {}
             Interaction::None => {}
@@ -479,6 +590,7 @@ impl CheckboxBundle {
                 style: Style {
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
                     gap: Size::all(Val::Px(20.)),
                     ..Default::default()
                 },
@@ -522,8 +634,9 @@ pub fn checkbox_init(
                     NodeBundle {
                         style: Style {
                             justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
                             padding: UiRect::horizontal(Val::Px(4.)),
-
+                            size: Size::all(P20),
                             ..Default::default()
                         },
 
@@ -534,11 +647,16 @@ pub fn checkbox_init(
                 .with_children(|parent| {
                     parent.spawn((
                         CheckboxMarker,
-                        TextBundle::from_section(
-                            if checkbox.checked { "x" } else { "" },
-                            text(&fonts),
-                        ) // Set the alignment of the Text
-                        .with_text_alignment(TextAlignment::Center),
+                        TextBundle{
+                            visibility: if checkbox.checked {
+                                Visibility::Visible
+                            } else {
+                                Visibility::Hidden
+                            },
+                            ..(TextBundle::from_section("x", text(&fonts)) // Set the alignment of the Text
+                                                         .with_text_alignment(TextAlignment::Center))
+                        }
+
                     ));
                 });
         });
@@ -548,18 +666,18 @@ pub fn checkbox_init(
 pub fn checkbox_update(
     checkboxes: Query<(&Checkbox, &Children), Changed<Checkbox>>,
     fields: Query<&Children, With<CheckboxField>>,
-    mut markers: Query<&mut Text, With<CheckboxMarker>>,
-    fonts: Res<Fonts>,
+    mut markers: Query<&mut Visibility, With<CheckboxMarker>>,
 ) {
     for (checkbox, children) in checkboxes.iter() {
         for child in children {
             if let Ok(field_children) = fields.get(*child) {
                 for child in field_children {
-                    if let Ok(mut marker_text) = markers.get_mut(*child) {
-                        marker_text.sections = vec![TextSection::new(
-                            if checkbox.checked { "x" } else { "" },
-                            text(&fonts),
-                        )];
+                    if let Ok(mut marker_visibility) = markers.get_mut(*child) {
+                        if checkbox.checked {
+                            *marker_visibility = Visibility::Visible;
+                        } else {
+                            *marker_visibility = Visibility::Hidden;
+                        }
                     }
                 }
             }
