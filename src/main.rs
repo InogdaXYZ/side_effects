@@ -44,7 +44,7 @@ fn main() {
             LoadingState::new(AppState::Loading).continue_to_state(AppState::TitleScreen),
         )
         .add_collection_to_loading_state::<_, MyAssets>(AppState::Loading)
-        .add_collection_to_loading_state::<_, MyFonts>(AppState::Loading)
+        .add_collection_to_loading_state::<_, Fonts>(AppState::Loading)
         // Loading
         .add_system(setup_preloader.in_schedule(OnEnter(AppState::Loading)))
         .add_systems(
@@ -68,8 +68,10 @@ fn main() {
         .add_system(hud::setup.in_schedule(OnEnter(AppState::InGame)))
         .add_systems(
             (
+                hud::checkbox_init,
+                hud::checkbox_update,
                 hud::medicine_property_button,
-                hud::test_medicine_button,
+                hud::medicine_test_togle_button,
                 hud::experiment_button,
             )
                 .in_set(OnUpdate(AppState::InGame)),
@@ -143,9 +145,13 @@ struct MyAssets {
 }
 
 #[derive(AssetCollection, Resource)]
-pub struct MyFonts {
+pub struct Fonts {
     #[asset(path = "fonts/Fira/ttf/FiraSans-Regular.ttf")]
-    fira_sans_regular: Handle<Font>,
+    regular: Handle<Font>,
+    #[asset(path = "fonts/Fira/ttf/FiraSans-Bold.ttf")]
+    bold: Handle<Font>,
+    #[asset(path = "fonts/Fira/ttf/FiraSans-SemiBold.ttf")]
+    semibold: Handle<Font>,
 }
 
 fn cleanup<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
@@ -225,7 +231,7 @@ struct TitleScreen;
 #[derive(Component)]
 struct StartButton;
 
-fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
+fn setup_title_screen(mut commands: Commands, fonts: Res<Fonts>) {
     commands
         .spawn((
             TitleScreen,
@@ -259,7 +265,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
                         TextBundle::from_section(
                             "Side effects",
                             TextStyle {
-                                font: fonts.fira_sans_regular.clone_weak(),
+                                font: fonts.regular.clone_weak(),
                                 font_size: 100.0,
                                 color: Color::BLACK,
                             },
@@ -271,7 +277,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
                         TextBundle::from_section(
                             "a game in which you conduct experiments\nto figure out side effects of new medicine",
                             TextStyle {
-                                font: fonts.fira_sans_regular.clone_weak(),
+                                font: fonts.regular.clone_weak(),
                                 font_size: 30.0,
                                 color: Color::BLACK,
                             },
@@ -306,7 +312,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
                                         TextBundle::from_section(
                                             "Start",
                                             TextStyle {
-                                                font: fonts.fira_sans_regular.clone_weak(),
+                                                font: fonts.regular.clone_weak(),
                                                 font_size: 30.0,
                                                 color: Color::WHITE,
                                             },
@@ -332,7 +338,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
                             // Accepts a `String` or any type that converts into a `String`, such as `&str`
                             "by Roman and Christina",
                             TextStyle {
-                                font: fonts.fira_sans_regular.clone_weak(),
+                                font: fonts.regular.clone_weak(),
                                 font_size: 30.0,
                                 color: Color::BLACK,
                             },
@@ -346,7 +352,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<MyFonts>) {
                             // Accepts a `String` or any type that converts into a `String`, such as `&str`
                             "built in Bevy engine; FiraSans font from Mozilla",
                             TextStyle {
-                                font: fonts.fira_sans_regular.clone_weak(),
+                                font: fonts.regular.clone_weak(),
                                 font_size: 20.0,
                                 color: Color::BLACK,
                             },
@@ -453,16 +459,32 @@ impl Medicine {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MedicineEffect {
     Appetite,
-    Smell,
     Fear,
+    Smell,
 }
 
 impl MedicineEffect {
     fn title(&self) -> &str {
         match self {
             MedicineEffect::Appetite => "Appetite",
-            MedicineEffect::Smell => "Smell",
             MedicineEffect::Fear => "Fear",
+            MedicineEffect::Smell => "Smell",
+        }
+    }
+
+    fn positive(&self) -> &str {
+        match self {
+            MedicineEffect::Appetite => "Promotes healthy appetite",
+            MedicineEffect::Fear => "Lowers anxiety",
+            MedicineEffect::Smell => "Enhances senses",
+        }
+    }
+
+    fn negative(&self) -> &str {
+        match self {
+            MedicineEffect::Appetite => "Causes loss of appetite",
+            MedicineEffect::Fear => "Increases anxiety",
+            MedicineEffect::Smell => "Loss of smell",
         }
     }
 }
