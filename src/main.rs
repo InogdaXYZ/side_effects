@@ -39,6 +39,7 @@ fn main() {
         .init_resource::<Medicines>()
         .add_state::<AppState>()
         .add_state::<GameState>()
+        .add_plugin(hud::HudPlugin)
         .add_loading_state(
             LoadingState::new(AppState::Loading).continue_to_state(AppState::TitleScreen),
         )
@@ -64,21 +65,6 @@ fn main() {
         )
         .add_system(start_button.in_set(OnUpdate(AppState::TitleScreen)))
         .add_system(cleanup::<TitleScreen>.in_schedule(OnExit(AppState::TitleScreen)))
-        // In game
-        .add_system(hud::setup.in_schedule(OnEnter(AppState::InGame)))
-        .add_systems(
-            (
-                hud::checkbox_init,
-                hud::checkbox_update,
-                hud::medicine_property_button,
-                hud::medicine_test_togle_button,
-                hud::experiment_button,
-                hud::toggle_dev_mode,
-                hud::report_effect_checkbox,
-            )
-                .in_set(OnUpdate(AppState::InGame)),
-        )
-        .add_system(cleanup::<hud::HUD>.in_schedule(OnExit(AppState::InGame)))
         // Planning experiment
         .add_systems(
             (cleanup::<SceneInstance>, spawn_scene)
@@ -352,7 +338,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<Fonts>) {
                         // Create a TextBundle that has a Text with a single section.
                         TextBundle::from_section(
                             // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                            "built in Bevy engine; FiraSans font from Mozilla",
+                            "built in Bevy engine; FiraSans font from Mozilla  ",
                             TextStyle {
                                 font: fonts.regular.clone_weak(),
                                 font_size: 20.0,
@@ -1202,10 +1188,10 @@ fn stink_animation(
     if let Some(my) = my {
         for mut animation_player in stinks.iter_mut() {
             if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-                // let anim = &gltf.named_animations["anim-rat-idle"];
-                // animation_player
-                //     .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
-                //     .repeat();
+                let anim = &gltf.named_animations["anim-rat-idle"];
+                animation_player
+                    .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                    .repeat();
             }
         }
     }
