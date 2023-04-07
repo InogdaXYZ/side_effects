@@ -480,7 +480,7 @@ impl MedicineEffect {
         }
     }
 
-    fn positive(&self) -> &str {
+    fn positive_title(&self) -> &str {
         match self {
             MedicineEffect::Appetite => "Promotes healthy appetite",
             MedicineEffect::Fear => "Lowers anxiety",
@@ -488,11 +488,27 @@ impl MedicineEffect {
         }
     }
 
-    fn negative(&self) -> &str {
+    fn positive_value(&self) -> i32 {
+        match self {
+            MedicineEffect::Appetite => 1,
+            MedicineEffect::Fear => -1,
+            MedicineEffect::Smell => 1,
+        }
+    }
+
+    fn negative_title(&self) -> &str {
         match self {
             MedicineEffect::Appetite => "Causes loss of appetite",
             MedicineEffect::Fear => "Increases anxiety",
             MedicineEffect::Smell => "Loss of smell",
+        }
+    }
+
+    fn negative_value(&self) -> i32 {
+        match self {
+            MedicineEffect::Appetite => -1,
+            MedicineEffect::Fear => 1,
+            MedicineEffect::Smell => -1,
         }
     }
 }
@@ -502,11 +518,20 @@ pub struct Medicines(Vec<Medicine>);
 
 impl Default for Medicines {
     fn default() -> Self {
-        Medicines(vec![
-            Medicine::default().with_name("A"),
-            Medicine::default().with_name("B"),
-            Medicine::default().with_name("C"),
-        ])
+        let mut a = Medicine::default().with_name("A");
+        a.set_effect(&MedicineEffect::Appetite, -1);
+        a.set_effect(&MedicineEffect::Fear, 1);
+
+        let mut b = Medicine::default().with_name("B");
+        b.set_effect(&MedicineEffect::Appetite, 1);
+        b.set_effect(&MedicineEffect::Smell, -1);
+
+        let mut c = Medicine::default().with_name("C");
+        c.set_effect(&MedicineEffect::Appetite, 1);
+        c.set_effect(&MedicineEffect::Smell, 1);
+        c.set_effect(&MedicineEffect::Fear, -1);
+
+        Medicines(vec![a, b, c])
     }
 }
 
@@ -1193,7 +1218,7 @@ fn rat_idle_animation(
 }
 
 fn stink_animation(
-    mut stinks: Query<&mut AnimationPlayer, Added<Stink>>,
+    mut stinks: Query<&mut AnimationPlayer, Added<Mouldy>>,
     my: Option<Res<MyAssets>>,
     assets_gltf: Res<Assets<Gltf>>,
 ) {

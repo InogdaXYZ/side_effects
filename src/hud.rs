@@ -232,9 +232,12 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
                                         ReportEffectCheckbox {
                                             medicine_index,
                                             effect: *effect,
-                                            value: 1,
+                                            value: effect.positive_value(),
                                         },
-                                        CheckboxBundle::new(effect.positive(), *value > 0),
+                                        CheckboxBundle::new(
+                                            effect.positive_title(),
+                                            *value == effect.positive_value(),
+                                        ),
                                     ));
                                 }
                             });
@@ -276,9 +279,12 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
                                         ReportEffectCheckbox {
                                             medicine_index,
                                             effect: *effect,
-                                            value: -1,
+                                            value: effect.negative_value(),
                                         },
-                                        CheckboxBundle::new(effect.negative(), *value < 0),
+                                        CheckboxBundle::new(
+                                            effect.negative_title(),
+                                            *value == effect.negative_value(),
+                                        ),
                                     ));
                                 }
                             });
