@@ -1188,7 +1188,7 @@ fn stink_animation(
     if let Some(my) = my {
         for mut animation_player in stinks.iter_mut() {
             if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-                let anim = &gltf.named_animations["anim-rat-idle"];
+                let anim = &gltf.named_animations["anim-stink"];
                 animation_player
                     .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
                     .repeat();
