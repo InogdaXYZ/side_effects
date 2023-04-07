@@ -457,6 +457,12 @@ impl Medicine {
             MedicineEffect::Fear => self.fear = value,
         }
     }
+
+    pub fn report_is_correct(&self) -> bool {
+        self.appetite == self.report.appetite
+            && self.fear == self.report.fear
+            && self.smell == self.report.smell
+    }
 }
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MedicineEffect {
@@ -501,6 +507,12 @@ impl Default for Medicines {
             Medicine::default().with_name("B"),
             Medicine::default().with_name("C"),
         ])
+    }
+}
+
+impl Medicines {
+    pub fn all_reports_are_correct(&self) -> bool {
+        self.0.iter().all(|m| m.report_is_correct())
     }
 }
 

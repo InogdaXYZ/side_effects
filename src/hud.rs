@@ -25,16 +25,6 @@ impl Plugin for HudPlugin {
     }
 }
 
-/***************************************/
-/*    ##     ## ##     ## ########     */
-/*    ##     ## ##     ## ##     ##    */
-/*    ##     ## ##     ## ##     ##    */
-/*    ######### ##     ## ##     ##    */
-/*    ##     ## ##     ## ##     ##    */
-/*    ##     ## ##     ## ##     ##    */
-/*    ##     ##  #######  ########     */
-/***************************************/
-
 #[derive(Component)]
 #[allow(clippy::upper_case_acronyms)]
 struct HUD;
@@ -63,6 +53,9 @@ const BG_WHITE: Color = Color::WHITE;
 const BG_ACTION_WARNING: Color = Color::hsla(18.49, 0.82, 0.65, 1.);
 const BG_ACTION_PRIMARY: Color = Color::hsla(194.05, 0.72, 0.70, 1.);
 
+const FG_FAILURE: Color = Color::hsla(18.49, 0.82, 0.65, 1.);
+const FG_SUCCESS: Color = Color::hsla(145., 0.63, 0.42, 1.);
+
 const P2: Val = Val::Px(2.);
 const P4: Val = Val::Px(4.);
 const P8: Val = Val::Px(8.);
@@ -78,6 +71,20 @@ const ACTION_BUTTON_STYLE: Style = Style {
     justify_content: JustifyContent::Center,
     ..Style::DEFAULT
 };
+
+trait TextStyleExtra {
+    fn with_color(&self, color: Color) -> Self;
+}
+
+impl TextStyleExtra for TextStyle {
+    fn with_color(&self, color: Color) -> Self {
+        Self {
+            color,
+            font: self.font.clone_weak(),
+            font_size: self.font_size,
+        }
+    }
+}
 
 fn h1(fonts: &Fonts) -> TextStyle {
     TextStyle {
@@ -120,6 +127,15 @@ fn button_caption(fonts: &Fonts) -> TextStyle {
 }
 
 fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
+    /*********************************************************************************************************************/
+    /*    ##     ## ######## ########  ####  ######  #### ##    ## ########     ######     ###    ########  ########     */
+    /*    ###   ### ##       ##     ##  ##  ##    ##  ##  ###   ## ##          ##    ##   ## ##   ##     ## ##     ##    */
+    /*    #### #### ##       ##     ##  ##  ##        ##  ####  ## ##          ##        ##   ##  ##     ## ##     ##    */
+    /*    ## ### ## ######   ##     ##  ##  ##        ##  ## ## ## ######      ##       ##     ## ########  ##     ##    */
+    /*    ##     ## ##       ##     ##  ##  ##        ##  ##  #### ##          ##       ######### ##   ##   ##     ##    */
+    /*    ##     ## ##       ##     ##  ##  ##    ##  ##  ##   ### ##          ##    ## ##     ## ##    ##  ##     ##    */
+    /*    ##     ## ######## ########  ####  ######  #### ##    ## ########     ######  ##     ## ##     ## ########     */
+    /*********************************************************************************************************************/
     let medicine_card = |parent: &mut ChildBuilder, medicine_index: usize, medicine: &Medicine| {
         // Medicine card
         parent
@@ -372,30 +388,208 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
             });
     };
 
+    /**************************************************************/
+    /*     ######  ##     ## ########  ##     ## #### ########    */
+    /*    ##    ## ##     ## ##     ## ###   ###  ##     ##       */
+    /*    ##       ##     ## ##     ## #### ####  ##     ##       */
+    /*     ######  ##     ## ########  ## ### ##  ##     ##       */
+    /*          ## ##     ## ##     ## ##     ##  ##     ##       */
+    /*    ##    ## ##     ## ##     ## ##     ##  ##     ##       */
+    /*     ######   #######  ########  ##     ## ####    ##       */
+    /**************************************************************/
+    let submit_block = |parent: &mut ChildBuilder| {
+        parent
+            .spawn((
+                SubmitBlock,
+                NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        position: UiRect {
+                            left: P20,
+                            bottom: P40,
+                            ..Default::default()
+                        },
+                        max_size: Size::width(Val::Percent(40.)),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Start,
+                        gap: Size::all(P10),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        SubmitButton,
+                        ButtonBundle {
+                            style: ACTION_BUTTON_STYLE,
+                            background_color: BG_ACTION_WARNING.into(),
+                            ..Default::default()
+                        },
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn(TextBundle::from_section(
+                            "Submit report cards",
+                            button_caption(&fonts),
+                        ));
+                    });
+
+                parent.spawn(TextBundle::from_sections(vec![
+                    TextSection::new("Note: ", bold(&fonts)),
+                    TextSection::new(
+                        "Make sure you’ve discovered all side effects of each medicine",
+                        text(&fonts),
+                    ),
+                    TextSection::new(
+                        " — the success of the entire lab depends on your work!",
+                        text(&fonts),
+                    ),
+                ]));
+            });
+
+        parent
+            .spawn((
+                ResultsBlock,
+                NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        position: UiRect {
+                            left: P20,
+                            bottom: P40,
+                            ..Default::default()
+                        },
+                        max_size: Size::width(Val::Percent(40.)),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Start,
+                        gap: Size::all(P10),
+                        ..Default::default()
+                    },
+                    visibility: Visibility::Hidden,
+                    ..Default::default()
+                },
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        TryAgainButton,
+                        ButtonBundle {
+                            style: ACTION_BUTTON_STYLE,
+                            background_color: BG_ACTION_PRIMARY.into(),
+                            ..Default::default()
+                        },
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn(TextBundle::from_section(
+                            "Try again?",
+                            button_caption(&fonts),
+                        ));
+                    });
+
+                parent.spawn((ResultsText, TextBundle::default()));
+            });
+    };
+
+    /****************************************************************************************************/
+    /*    ########  ##          ###    ##    ##          ##     ######  ########  #######  ########     */
+    /*    ##     ## ##         ## ##    ##  ##          ##     ##    ##    ##    ##     ## ##     ##    */
+    /*    ##     ## ##        ##   ##    ####          ##      ##          ##    ##     ## ##     ##    */
+    /*    ########  ##       ##     ##    ##          ##        ######     ##    ##     ## ########     */
+    /*    ##        ##       #########    ##         ##              ##    ##    ##     ## ##           */
+    /*    ##        ##       ##     ##    ##        ##         ##    ##    ##    ##     ## ##           */
+    /*    ##        ######## ##     ##    ##       ##           ######     ##     #######  ##           */
+    /****************************************************************************************************/
+    let play_stop = |parent: &mut ChildBuilder| {
+        parent
+            .spawn(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Column,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        ExperimentButton(ExperimentAction::Conduct),
+                        ButtonBundle {
+                            background_color: Color::DARK_GRAY.into(),
+                            style: Style {
+                                padding: UiRect::all(Val::Px(10.)),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            ExperimentButtonCaption,
+                            TextBundle::from_section(
+                                "Conduct experiment",
+                                TextStyle {
+                                    font: fonts.regular.clone_weak(),
+                                    font_size: 30.0,
+                                    color: Color::WHITE,
+                                },
+                            )
+                            .with_text_alignment(TextAlignment::Center),
+                        ));
+                    });
+
+                parent
+                    .spawn((
+                        ExperimentButton(ExperimentAction::Finish),
+                        ButtonBundle {
+                            background_color: Color::DARK_GRAY.into(),
+                            style: Style {
+                                padding: UiRect::all(Val::Px(10.)),
+                                ..Default::default()
+                            },
+                            visibility: Visibility::Hidden,
+                            ..Default::default()
+                        },
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            ExperimentButtonCaption,
+                            TextBundle::from_section(
+                                "Finish experiment",
+                                TextStyle {
+                                    font: fonts.regular.clone_weak(),
+                                    font_size: 30.0,
+                                    color: Color::WHITE,
+                                },
+                            )
+                            .with_text_alignment(TextAlignment::Center),
+                        ));
+                    });
+            });
+    };
+
+    /***************************************/
+    /*    ##     ## ##     ## ########     */
+    /*    ##     ## ##     ## ##     ##    */
+    /*    ##     ## ##     ## ##     ##    */
+    /*    ######### ##     ## ##     ##    */
+    /*    ##     ## ##     ## ##     ##    */
+    /*    ##     ## ##     ## ##     ##    */
+    /*    ##     ##  #######  ########     */
+    /***************************************/
     commands
         .spawn((
             HUD,
             NodeBundle {
                 style: Style {
                     position_type: PositionType::Absolute,
-                    position:  UiRect::all(Val::Percent(0.)),
-                    gap: Size::all(Val::Px(20.)),
-                    padding: UiRect::all(Val::Px(40.)),
+                    position: UiRect::all(Val::Percent(0.)),
+                    gap: Size::all(P20),
+                    padding: UiRect::all(P20),
                     ..Default::default()
                 },
                 ..Default::default()
             },
         ))
         .with_children(|parent| {
-            /************************************************************************************/
-            /*    ##     ## ######## ########  ####  ######  #### ##    ## ########  ######     */
-            /*    ###   ### ##       ##     ##  ##  ##    ##  ##  ###   ## ##       ##    ##    */
-            /*    #### #### ##       ##     ##  ##  ##        ##  ####  ## ##       ##          */
-            /*    ## ### ## ######   ##     ##  ##  ##        ##  ## ## ## ######    ######     */
-            /*    ##     ## ##       ##     ##  ##  ##        ##  ##  #### ##             ##    */
-            /*    ##     ## ##       ##     ##  ##  ##    ##  ##  ##   ### ##       ##    ##    */
-            /*    ##     ## ######## ########  ####  ######  #### ##    ## ########  ######     */
-            /************************************************************************************/
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -411,168 +605,9 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
                     }
                 });
 
+            play_stop(parent);
 
-
-            /****************************************************************************************************/
-            /*    ########  ##          ###    ##    ##          ##     ######  ########  #######  ########     */
-            /*    ##     ## ##         ## ##    ##  ##          ##     ##    ##    ##    ##     ## ##     ##    */
-            /*    ##     ## ##        ##   ##    ####          ##      ##          ##    ##     ## ##     ##    */
-            /*    ########  ##       ##     ##    ##          ##        ######     ##    ##     ## ########     */
-            /*    ##        ##       #########    ##         ##              ##    ##    ##     ## ##           */
-            /*    ##        ##       ##     ##    ##        ##         ##    ##    ##    ##     ## ##           */
-            /*    ##        ######## ##     ##    ##       ##           ######     ##     #######  ##           */
-            /****************************************************************************************************/
-            parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Column,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .with_children(|parent| {
-                    parent
-                        .spawn((
-                            ExperimentButton(ExperimentAction::Conduct),
-                            ButtonBundle {
-                                background_color: Color::DARK_GRAY.into(),
-                                style: Style{
-                                    padding: UiRect::all(Val::Px(10.)),
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            },
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn((
-                                ExperimentButtonCaption,
-                                TextBundle::from_section(
-                                    "Conduct experiment",
-                                    TextStyle {
-                                        font: fonts.regular.clone_weak(),
-                                        font_size: 30.0,
-                                        color: Color::WHITE,
-                                    },
-                                ) // Set the alignment of the Text
-                                .with_text_alignment(TextAlignment::Center),
-                            ));
-                        });
-
-                    parent
-                        .spawn((
-                            ExperimentButton(ExperimentAction::Finish),
-                            ButtonBundle {
-                                background_color: Color::DARK_GRAY.into(),
-                                style: Style{
-                                    padding: UiRect::all(Val::Px(10.)),
-                                    ..Default::default()
-                                },
-                                visibility: Visibility::Hidden,
-                                ..Default::default()
-                            },
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn((
-                                ExperimentButtonCaption,
-                                TextBundle::from_section(
-                                    "Finish experiment",
-                                    TextStyle {
-                                        font: fonts.regular.clone_weak(),
-                                        font_size: 30.0,
-                                        color: Color::WHITE,
-                                    },
-                                )
-                                .with_text_alignment(TextAlignment::Center),
-                            ));
-                        });
-                });
-
-            /**************************************************************/
-            /*     ######  ##     ## ########  ##     ## #### ########    */
-            /*    ##    ## ##     ## ##     ## ###   ###  ##     ##       */
-            /*    ##       ##     ## ##     ## #### ####  ##     ##       */
-            /*     ######  ##     ## ########  ## ### ##  ##     ##       */
-            /*          ## ##     ## ##     ## ##     ##  ##     ##       */
-            /*    ##    ## ##     ## ##     ## ##     ##  ##     ##       */
-            /*     ######   #######  ########  ##     ## ####    ##       */
-            /**************************************************************/
-            parent.spawn((SubmitBlock,
-                NodeBundle{
-                            style: Style{
-                                position_type: PositionType::Absolute,
-                                position: UiRect {
-                                    left: P20,
-                                    bottom: P40,
-                                    ..Default::default()
-                                },
-                                max_size: Size::width(Val::Percent(40.)),
-                                flex_direction:FlexDirection::Column,
-                                align_items: AlignItems::Start,
-                                gap: Size::all(P10),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        })).with_children(|parent|{
-                parent.spawn((SubmitButton,
-                    ButtonBundle{
-                                    style: ACTION_BUTTON_STYLE,
-                                    background_color: BG_ACTION_WARNING.into(),
-                                    ..Default::default()
-                                })).with_children(|parent|{
-                    parent.spawn(TextBundle::from_section("Submit report cards",
-                        button_caption(&fonts)));
-                });
-
-                parent.spawn(TextBundle::from_sections(
-                    vec![
-                        TextSection::new("Note: ", bold(&fonts)),
-                        TextSection::new("Make sure you’ve discovered all side effects of each medicine", text(&fonts)),
-                        TextSection::new(" — the success of the entire lab depends on your work!", text(&fonts))
-                        ]
-
-
-                    ));
-            });
-
-            parent.spawn((ResultsBlock,
-                NodeBundle{
-                            style: Style{
-                                position_type: PositionType::Absolute,
-                                position: UiRect {
-                                    left: P20,
-                                    bottom: P40,
-                                    ..Default::default()
-                                },
-                                max_size: Size::width(Val::Percent(40.)),
-                                flex_direction:FlexDirection::Column,
-                                align_items: AlignItems::Start,
-                                gap: Size::all(P10),
-                                ..Default::default()
-                            },
-                            visibility: Visibility::Hidden,
-                            ..Default::default()
-                        })).with_children(|parent|{
-                parent.spawn((TryAgainButton,
-                    ButtonBundle{
-                                    style: ACTION_BUTTON_STYLE,
-                                    background_color: BG_ACTION_PRIMARY.into(),
-                                    ..Default::default()
-                                })).with_children(|parent|{
-                    parent.spawn(TextBundle::from_section("Try again?",
-                        button_caption(&fonts)));
-                });
-
-                parent.spawn(TextBundle::from_sections(
-                    vec![
-                        TextSection::new("Note: ", bold(&fonts)),
-                        TextSection::new("Make sure you’ve discovered all side effects of each medicine", text(&fonts)),
-                        TextSection::new(" — the success of the entire lab depends on your work!", text(&fonts))
-                        ]
-
-
-                    ));
-            });
-
+            submit_block(parent);
 
             parent.spawn((
                 ToogleDevMode,
@@ -589,7 +624,7 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
                     },
                     background_color: BG_DARK_GRAY.into(),
                     ..Default::default()
-                }
+                },
             ));
         });
 }
@@ -747,6 +782,16 @@ fn report_effect_checkbox(
     }
 }
 
+/**************************************************************/
+/*     ######  ##     ## ########  ##     ## #### ########    */
+/*    ##    ## ##     ## ##     ## ###   ###  ##     ##       */
+/*    ##       ##     ## ##     ## #### ####  ##     ##       */
+/*     ######  ##     ## ########  ## ### ##  ##     ##       */
+/*          ## ##     ## ##     ## ##     ##  ##     ##       */
+/*    ##    ## ##     ## ##     ## ##     ##  ##     ##       */
+/*     ######   #######  ########  ##     ## ####    ##       */
+/**************************************************************/
+
 #[derive(Component, Debug)]
 struct SubmitButton;
 
@@ -754,6 +799,9 @@ fn submit_button(
     mut commands: Commands,
     interactions: Query<&Interaction, With<SubmitButton>>,
     blocks: Query<(Entity, AnyOf<(&SubmitBlock, &ResultsBlock)>)>,
+    mut results_texts: Query<&mut Text, With<ResultsText>>,
+    medicines: Res<Medicines>,
+    fonts: Res<Fonts>,
 ) {
     for interaction in interactions.iter() {
         match interaction {
@@ -765,6 +813,41 @@ fn submit_button(
 
                     if results.is_some() {
                         commands.entity(block).insert(Visibility::Visible);
+                    }
+
+                    for mut results_text in results_texts.iter_mut() {
+                        results_text.sections = if medicines.all_reports_are_correct() {
+                            vec![
+                            TextSection::new("Results: ", bold(&fonts)),
+                            TextSection::new(
+                                "Thousands of doses of analysed medications were produced. Many people received adequate care due to\n",
+                                text(&fonts),
+                            ),
+                            TextSection::new(
+                                "properly labeled side effects",
+                                bold(&fonts).with_color(FG_SUCCESS),
+                            ),
+                            TextSection::new(
+                                ".You have made a significant contribution to medicine and society. Well done!",
+                                text(&fonts),
+                            )]
+                        } else {
+                            vec![
+                                TextSection::new("Results: ", bold(&fonts)),
+                                TextSection::new(
+                                    "Thousands of doses of analysed medications were produced. Unfortunately, they had many\n",
+                                    text(&fonts),
+                                ),
+                                TextSection::new(
+                                    "side effects not listed on the label",
+                                    bold(&fonts).with_color(FG_FAILURE),
+                                ),
+                                TextSection::new(
+                                    ". The lab was sued into oblivion and you lost your job.",
+                                    text(&fonts),
+                                )
+                            ]
+                        }
                     }
                 }
             }
@@ -779,6 +862,9 @@ struct SubmitBlock;
 
 #[derive(Component, Debug)]
 struct ResultsBlock;
+
+#[derive(Component, Debug)]
+struct ResultsText;
 #[derive(Component, Debug)]
 struct TryAgainButton;
 
