@@ -580,6 +580,7 @@ fn setup_entities(mut commands: Commands, named_entities: Query<(Entity, &Name),
                 .entity(entity)
                 .insert((
                     Rat::default(),
+                    RememberedObstacles::default(),
                     Rest(Timer::from_seconds(0.5, TimerMode::Once)),
                     RigidBody::Dynamic,
                     KinematicCharacterController::default(),
@@ -853,9 +854,22 @@ struct Panic {
 #[derive(Component, Debug)]
 struct Goal((usize, usize));
 
+#[derive(Component, Debug, Default)]
+struct RememberedObstacles(Vec<(usize, usize)>);
+
 fn set_goal(
     mut commands: Commands,
-    mut rats: Query<(Entity, &Rat, &Transform, Option<&Goal>, Option<&mut Panic>), Without<Rest>>,
+    mut rats: Query<
+        (
+            Entity,
+            &Rat,
+            &Transform,
+            Option<&Goal>,
+            Option<&mut Panic>,
+            &mut RememberedObstacles,
+        ),
+        Without<Rest>,
+    >,
     cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
     mouldy_cheeses: Query<&Transform, With<Mouldy>>,
     scare_cats: Query<&Transform, With<ScareCat>>,
@@ -863,7 +877,9 @@ fn set_goal(
     settings: Res<Settings>,
     time: Res<Time>,
 ) {
-    for (rat_entity, rat, rat_transform, goal, mut panic) in rats.iter_mut() {
+    for (rat_entity, rat, rat_transform, goal, mut panic, mut remembered_obstacles) in
+        rats.iter_mut()
+    {
         if let Some(ref mut panic) = panic {
             panic.timer.tick(time.delta());
         }
@@ -872,7 +888,7 @@ fn set_goal(
             .grid_coord(rat_transform.translation)
             .unwrap_or((0, 0));
 
-        let avoided: Vec<(usize, usize)> = mouldy_cheeses
+        let mut avoided: Vec<(usize, usize)> = mouldy_cheeses
             .iter()
             .filter_map(|transform| {
                 if rat.smell > 0 {
@@ -882,6 +898,7 @@ fn set_goal(
                 }
             })
             .collect();
+        avoided.extend_from_slice(&remembered_obstacles.0);
 
         if let Some(goal) = goal {
             let goal_translation = pathfinding.translation(&goal.0, rat_transform.translation.y);
@@ -974,6 +991,7 @@ fn set_goal(
                     let closest_scare_cat = neighbors.iter().find(|n| scary_tiles.contains(n));
                     if let Some(panic_coord) = closest_scare_cat {
                         // Panic
+                        remembered_obstacles.0.push(*panic_coord);
                         commands.entity(rat_entity).insert(Panic {
                             coord: *panic_coord,
                             timer: Timer::from_seconds(
