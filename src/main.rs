@@ -56,6 +56,7 @@ fn main() {
             rat_moving_animation,
             rat_idle_animation,
             stink_animation,
+            box_jiggle_animation,
         ))
         // Title screen
         .add_systems(
@@ -1240,10 +1241,27 @@ fn stink_animation(
     my: Option<Res<MyAssets>>,
     assets_gltf: Res<Assets<Gltf>>,
 ) {
+    // if let Some(my) = my {
+    //     for mut animation_player in stinks.iter_mut() {
+    //         if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+    //             let anim = &gltf.named_animations["anim-stink.001"];
+    //             animation_player
+    //                 .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
+    //                 .repeat();
+    //         }
+    //     }
+    // }
+}
+
+fn box_jiggle_animation(
+    mut boxes: Query<(&mut AnimationPlayer), With<CartonBox>>,
+    my: Option<Res<MyAssets>>,
+    assets_gltf: Res<Assets<Gltf>>,
+) {
     if let Some(my) = my {
-        for mut animation_player in stinks.iter_mut() {
+        for mut animation_player in boxes.iter_mut() {
             if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-                let anim = &gltf.named_animations["anim-stink"];
+                let anim = &gltf.named_animations["anim-box-jiggle"];
                 animation_player
                     .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
                     .repeat();
