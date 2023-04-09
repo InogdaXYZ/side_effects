@@ -1202,6 +1202,23 @@ fn open_box(
     }
 }
 
+fn box_jiggle_animation(
+    mut boxes: Query<&mut AnimationPlayer, Added<CartonBox>>,
+    my: Option<Res<MyAssets>>,
+    assets_gltf: Res<Assets<Gltf>>,
+) {
+    if let Some(my) = my {
+        for mut animation_player in boxes.iter_mut() {
+            if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
+                let anim = &gltf.named_animations["anim-box-jiggle"];
+                animation_player
+                    .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
+                    .repeat();
+            }
+        }
+    }
+}
+
 fn rat_moving_animation(
     mut rats: Query<&mut AnimationPlayer, (With<Rat>, Added<Goal>)>,
     my: Option<Res<MyAssets>>,
@@ -1241,27 +1258,10 @@ fn stink_animation(
     my: Option<Res<MyAssets>>,
     assets_gltf: Res<Assets<Gltf>>,
 ) {
-    // if let Some(my) = my {
-    //     for mut animation_player in stinks.iter_mut() {
-    //         if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-    //             let anim = &gltf.named_animations["anim-stink.001"];
-    //             animation_player
-    //                 .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
-    //                 .repeat();
-    //         }
-    //     }
-    // }
-}
-
-fn box_jiggle_animation(
-    mut boxes: Query<(&mut AnimationPlayer), With<CartonBox>>,
-    my: Option<Res<MyAssets>>,
-    assets_gltf: Res<Assets<Gltf>>,
-) {
     if let Some(my) = my {
-        for mut animation_player in boxes.iter_mut() {
+        for mut animation_player in stinks.iter_mut() {
             if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-                let anim = &gltf.named_animations["anim-box-jiggle"];
+                let anim = &gltf.named_animations["anim-stink"];
                 animation_player
                     .play_with_transition(anim.clone_weak(), Duration::from_millis(100))
                     .repeat();
