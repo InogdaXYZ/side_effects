@@ -10,28 +10,33 @@ Test your problem-solving skills while keeping your conscience clear. Disclaimer
 
 No rats were harmed in the making of this game.
 
-Hints:
+## Hints
 
-Lab rats don’t have great vision and rely on memory and smell.
-Cats are scary even when they are not real.
-Not all cheese smells good.
-Uninterested rats will generally just roam around.
-The hungrier a rat is, the more actively it searches for food.
-Not all medicines have side effects.
-Some medicines are nothing but side effects.
-Effects of one medicine can be compensated by another.
-A lazy rat is a poor source of insight.
+- Lab rats don’t have great vision and rely on memory and smell.
+- Cats are scary even when they are not real.
+- Not all cheese smells good.
+- Uninterested rats will generally just roam around.
+- The hungrier a rat is, the more actively it searches for food.
+- A lazy rat is a poor source of insight.
+- Not all medicines have side effects.
+- Some medicines are nothing but side effects.
+- Effects of one medicine can be compensated by another.
 
-Credits:
 
-Built with Blender, Bevy engine, and lots of joy
+## Credits
 
-Visual design and assets by Christina
-Code and direction by Roman
+Built with *Blender*, *Bevy* engine, and lots of *joy*
+
+Visual design and assets by Christina K.
+Code and direction by Roman Bardt
 Ideas by the universal field of consciousness
 
+Source code available at https://github.com/bardt/side_effects
 
+Thanks to
+ "
+Bevy engine maintainers and community for
+bevy_asset_loader,
+bevy-inspector-egui,
+and bevy_rapier3d
 
-Fira Sans font by Mozilla
-Bevy
-[other libraries]

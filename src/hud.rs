@@ -1082,7 +1082,7 @@ fn setup_help(mut commands: Commands, fonts: Res<Fonts>) {
                     NodeBundle {
                         style: Style {
                             size: Size::width(Val::Px(400.)),
-                            padding: UiRect::all(P20),
+                            padding: UiRect::new(P20, P20, P10, P10),
                             gap: Size::all(P8),
                             flex_direction: FlexDirection::Column,
                             align_self: AlignSelf::Stretch,
@@ -1096,21 +1096,34 @@ fn setup_help(mut commands: Commands, fonts: Res<Fonts>) {
                     },
                 ))
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section("Hints", h1(&fonts)));
+                    let p_style  = Style {
+                        max_size: Size::width(Val::Px(360.)),
+                        ..Default::default()
+                    };
+
                     parent.spawn(TextBundle::from_section(
-                        "Effects of one medicine can be compensated by another.",
+                        "Welcome to \"No Rats Were Harmed,\" the puzzle game where you play as a lab researcher tasked with identifying the positive effects and side effects of unknown medicines. To do this, you'll need to carefully observe the behavior of a test subject - a lab rat - after giving it a medicine and releasing it into a labyrinth to find cheese. Use your critical thinking skills to identify the properties of each medicine. If you label the medicines incorrectly, the lab will be threatened with a class action lawsuit by unhappy customers!",
+                        text(&fonts),
+                    ).with_style(p_style.clone()));
+                    parent.spawn(TextBundle::from_section(
+                        "Test your problem-solving skills while keeping your conscience clear. Disclaimer: only one experiment is available at the moment.",
+                        text(&fonts),
+                    ).with_style(p_style.clone()));
+                    parent.spawn(TextBundle::from_section(
+                        "No rats were harmed in the making of this game.",
                         text(&fonts),
                     ));
+                    parent.spawn(TextBundle::from_section("Hints", h1(&fonts)));
                     parent.spawn(TextBundle::from_section(
                         "Lab rats don’t have great vision and rely on memory and smell.",
                         text(&fonts),
                     ));
                     parent.spawn(TextBundle::from_section(
-                        "The hungrier a rat is, the more actively it searches for food.",
+                        "Cats are scary even when they are not real.",
                         text(&fonts),
                     ));
                     parent.spawn(TextBundle::from_section(
-                        "Not all cheese smells well.",
+                        "Not all cheese smells good.",
                         text(&fonts),
                     ));
                     parent.spawn(TextBundle::from_section(
@@ -1118,32 +1131,48 @@ fn setup_help(mut commands: Commands, fonts: Res<Fonts>) {
                         text(&fonts),
                     ));
                     parent.spawn(TextBundle::from_section(
-                        "Cats are scary even when they are not real.",
+                        "The hungrier a rat is, the more actively it searches for food.",
                         text(&fonts),
                     ));
+                    parent.spawn(TextBundle::from_section(
+                        "A lazy rat is a poor source of insight.",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section("Not all medicines have side effects.", text(&fonts)));
+                    parent.spawn(TextBundle::from_section("Some medicines are nothing but side effects.", text(&fonts)));
+                    parent.spawn(TextBundle::from_section("Effects of one medicine can be compensated by another.", text(&fonts)));
                     parent.spawn(TextBundle::from_section("", text(&fonts)));
                     parent.spawn(TextBundle::from_section("", text(&fonts)));
 
                     parent.spawn(TextBundle::from_section("Credits", h1(&fonts)));
-                    parent.spawn(TextBundle::from_section(
-                        "Built with Blender, Bevy engine, and lots of joy.",
-                        text(&fonts),
+                    parent.spawn(TextBundle::from_sections(
+                        vec![
+                        TextSection::new("Built with ", text(&fonts)),
+                        TextSection::new("Blender", bold(&fonts)),
+                        TextSection::new(", ", text(&fonts)),
+                        TextSection::new("Bevy", bold(&fonts)),
+                        TextSection::new(" engine, and lots of ", text(&fonts)),
+                        TextSection::new("joy.", bold(&fonts)),
+                        ]
                     ));
                     parent.spawn(TextBundle::from_section("", text(&fonts)));
                     parent.spawn(TextBundle::from_section(
-                        "Visual design and assets by Christina",
+                        "Visual design and assets by Christina K.",
                         text(&fonts),
                     ));
                     parent.spawn(TextBundle::from_section(
-                        "Code and direction by Roman",
+                        "Code and direction by Roman Bardt",
                         text(&fonts),
                     ));
                     parent.spawn(TextBundle::from_section(
                         "Ideas by the universal field of consciousness",
                         text(&fonts),
                     ));
-
-                    // FiraSans font from Mozilla  "
+                    parent.spawn(TextBundle::from_section("", text(&fonts)));
+                    parent.spawn(TextBundle::from_section("Source code available at https://github.com/bardt/side_effects", text(&fonts)));
+                    parent.spawn(TextBundle::from_section("Thanks to      Mozilla for Fira Sans,", text(&fonts)));
+                    parent.spawn(TextBundle::from_section("Bevy engine maintainers and community for", text(&fonts)));
+                    parent.spawn(TextBundle::from_section("bevy_asset_loader, bevy-inspector-egui, and bevy_rapier3d", text(&fonts)));
                 });
         });
 }
