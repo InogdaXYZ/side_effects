@@ -433,7 +433,120 @@ impl Medicine {
             && self.fear == self.report.fear
             && self.smell == self.report.smell
     }
+
+    #[rustfmt::skip]
+    pub fn report_missed_side_effects(&self) -> bool {
+        (self.appetite == MedicineEffect::Appetite.negative_value() && self.appetite != self.report.appetite) ||
+        (self.fear == MedicineEffect::Fear.negative_value() && self.fear != self.report.fear) ||
+        (self.smell == MedicineEffect::Smell.negative_value() && self.smell != self.report.smell)
+    }
+
+    #[rustfmt::skip]
+    pub fn report_extra_side_effects(&self) -> bool {
+        (self.report.appetite == MedicineEffect::Appetite.negative_value() && self.appetite != self.report.appetite) ||
+        (self.report.fear == MedicineEffect::Fear.negative_value() && self.fear != self.report.fear) ||
+        (self.report.smell == MedicineEffect::Smell.negative_value() && self.smell != self.report.smell)
+    }
+
+    #[rustfmt::skip]
+    pub fn report_missed_desirable_effects(&self) -> bool {
+        (self.appetite == MedicineEffect::Appetite.positive_value() && self.appetite != self.report.appetite) ||
+        (self.fear == MedicineEffect::Fear.positive_value() && self.fear != self.report.fear) ||
+        (self.smell == MedicineEffect::Smell.positive_value() && self.smell != self.report.smell)
+    }
+
+    #[rustfmt::skip]
+    pub fn report_extra_desirable_effects(&self) -> bool {
+        (self.report.appetite == MedicineEffect::Appetite.positive_value() && self.appetite != self.report.appetite) ||
+        (self.report.fear == MedicineEffect::Fear.positive_value() && self.fear != self.report.fear) ||
+        (self.report.smell == MedicineEffect::Smell.positive_value() && self.smell != self.report.smell)
+    }
 }
+
+#[test]
+fn test_report_missed_side_effects() {
+    let mut medicine = Medicine::default();
+    assert!(!medicine.report_missed_side_effects());
+
+    medicine.appetite = -1;
+    assert!(medicine.report_missed_side_effects());
+    medicine.report.appetite = -1;
+    assert!(!medicine.report_missed_side_effects());
+
+    medicine.fear = 1;
+    assert!(medicine.report_missed_side_effects());
+    medicine.report.fear = 1;
+    assert!(!medicine.report_missed_side_effects());
+
+    medicine.smell = -1;
+    assert!(medicine.report_missed_side_effects());
+    medicine.report.smell = -1;
+    assert!(!medicine.report_missed_side_effects());
+}
+
+#[test]
+fn test_report_extra_side_effects() {
+    let mut medicine = Medicine::default();
+    assert!(!medicine.report_extra_side_effects());
+
+    medicine.report.appetite = -1;
+    assert!(medicine.report_extra_side_effects());
+    medicine.appetite = -1;
+    assert!(!medicine.report_extra_side_effects());
+
+    medicine.report.fear = 1;
+    assert!(medicine.report_extra_side_effects());
+    medicine.fear = 1;
+    assert!(!medicine.report_extra_side_effects());
+
+    medicine.report.smell = -1;
+    assert!(medicine.report_extra_side_effects());
+    medicine.smell = -1;
+    assert!(!medicine.report_extra_side_effects());
+}
+
+#[test]
+fn test_report_missed_desirable_effects() {
+    let mut medicine = Medicine::default();
+    assert!(!medicine.report_missed_desirable_effects());
+
+    medicine.appetite = 1;
+    assert!(medicine.report_missed_desirable_effects());
+    medicine.report.appetite = 1;
+    assert!(!medicine.report_missed_desirable_effects());
+
+    medicine.fear = -1;
+    assert!(medicine.report_missed_desirable_effects());
+    medicine.report.fear = -1;
+    assert!(!medicine.report_missed_desirable_effects());
+
+    medicine.smell = 1;
+    assert!(medicine.report_missed_desirable_effects());
+    medicine.report.smell = 1;
+    assert!(!medicine.report_missed_desirable_effects());
+}
+
+#[test]
+fn test_report_extra_desirable_effects() {
+    let mut medicine = Medicine::default();
+    assert!(!medicine.report_extra_desirable_effects());
+
+    medicine.report.appetite = 1;
+    assert!(medicine.report_extra_desirable_effects());
+    medicine.appetite = 1;
+    assert!(!medicine.report_extra_desirable_effects());
+
+    medicine.report.fear = -1;
+    assert!(medicine.report_extra_desirable_effects());
+    medicine.fear = -1;
+    assert!(!medicine.report_extra_desirable_effects());
+
+    medicine.report.smell = 1;
+    assert!(medicine.report_extra_desirable_effects());
+    medicine.smell = 1;
+    assert!(!medicine.report_extra_desirable_effects());
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MedicineEffect {
     Appetite,
@@ -509,6 +622,22 @@ impl Default for Medicines {
 impl Medicines {
     pub fn all_reports_are_correct(&self) -> bool {
         self.0.iter().all(|m| m.report_is_correct())
+    }
+
+    pub fn some_reports_have_extra_side_effects(&self) -> bool {
+        self.0.iter().any(|m| m.report_extra_side_effects())
+    }
+
+    pub fn some_reports_have_missed_side_effects(&self) -> bool {
+        self.0.iter().any(|m| m.report_missed_side_effects())
+    }
+
+    pub fn some_reports_have_extra_desirable_effects(&self) -> bool {
+        self.0.iter().any(|m| m.report_extra_desirable_effects())
+    }
+
+    pub fn some_reports_have_missed_desirable_effects(&self) -> bool {
+        self.0.iter().any(|m| m.report_missed_desirable_effects())
     }
 }
 

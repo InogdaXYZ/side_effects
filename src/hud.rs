@@ -838,21 +838,68 @@ fn submit_button(
                                 text(&fonts),
                             )]
                         } else {
+                            let extra_message = if medicines.some_reports_have_missed_side_effects()
+                            {
+                                vec![
+                                    TextSection::new("Unfortunately, they had many", text(&fonts)),
+                                    TextSection::new(
+                                        " side effects not listed on the label",
+                                        bold(&fonts).with_color(FG_FAILURE),
+                                    ),
+                                    TextSection::new(
+                                        ". The lab was sued into oblivion and you lost your job.",
+                                        text(&fonts),
+                                    ),
+                                ]
+                            } else if medicines.some_reports_have_extra_desirable_effects() {
+                                vec![
+                                    TextSection::new("Unfortunately, the labels made extravagant claims about the medicines'", text(&fonts)),
+                                    TextSection::new(
+                                        " desirable effects, which were not true",
+                                        bold(&fonts).with_color(FG_FAILURE),
+                                    ),
+                                    TextSection::new(
+                                        ". The lab was sued into oblivion and you lost your job.",
+                                        text(&fonts),
+                                    ),
+                                ]
+                            } else if medicines.some_reports_have_missed_desirable_effects() {
+                                vec![
+                                    TextSection::new("Unfortunately,", text(&fonts)),
+                                    TextSection::new(
+                                        " not all of the medicines' desirable effects",
+                                        bold(&fonts).with_color(FG_FAILURE),
+                                    ),
+                                    TextSection::new(
+                                        " were listed on the label. They were sold at a loss. The lab ran out of money and shut down.",
+                                        text(&fonts),
+                                    ),
+                                ]
+                            } else if medicines.some_reports_have_extra_side_effects() {
+                                vec![
+                                    TextSection::new("Unfortunately, the list of", text(&fonts)),
+                                    TextSection::new(
+                                        " side effects on the label was so long",
+                                        bold(&fonts).with_color(FG_FAILURE),
+                                    ),
+                                    TextSection::new(
+                                        " that nobody purchased them. The lab ran out of money and shut down.",
+                                        text(&fonts),
+                                    ),
+                                ]
+                            } else {
+                                vec![]
+                            };
+
                             vec![
-                                TextSection::new("Results: ", bold(&fonts)),
+                                vec![TextSection::new("Results: ", bold(&fonts)),
                                 TextSection::new(
-                                    "Thousands of doses of analysed medications were produced. Unfortunately, they had many\n",
+                                    "Thousands of doses of analysed medications were produced.\n",
                                     text(&fonts),
-                                ),
-                                TextSection::new(
-                                    "side effects not listed on the label",
-                                    bold(&fonts).with_color(FG_FAILURE),
-                                ),
-                                TextSection::new(
-                                    ". The lab was sued into oblivion and you lost your job.",
-                                    text(&fonts),
-                                )
+                                )],
+                                extra_message,
                             ]
+                            .concat()
                         }
                     }
                 }
