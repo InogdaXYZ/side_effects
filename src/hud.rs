@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, ui::FocusPolicy};
 
 use crate::{AppState, Fonts, GameState, Medicine, MedicineEffect, Medicines};
 
@@ -298,106 +298,110 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
                     });
 
                 // Developer
-                parent
-                    .spawn((
-                        DevPanel,
-                        NodeBundle {
-                            style: Style {
-                                flex_direction: FlexDirection::Column,
-                                padding: UiRect::new(P20, P20, P8, P8),
-                                gap: Size::all(P8),
+                #[cfg(debug_assertions)]
+                {
+                    parent
+                        .spawn((
+                            DevPanel,
+                            NodeBundle {
+                                style: Style {
+                                    flex_direction: FlexDirection::Column,
+                                    padding: UiRect::new(P20, P20, P8, P8),
+                                    gap: Size::all(P8),
+                                    ..Default::default()
+                                },
+                                background_color: BG_LIGHT_GRAY.into(),
+                                visibility: Visibility::Hidden,
                                 ..Default::default()
                             },
-                            background_color: BG_LIGHT_GRAY.into(),
-                            visibility: Visibility::Hidden,
-                            ..Default::default()
-                        },
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn(
-                            TextBundle::from_section("Effects".to_string(), h2(&fonts))
-                                .with_text_alignment(TextAlignment::Center)
-                                .with_style(Style {
-                                    align_self: AlignSelf::Center,
-                                    ..Default::default()
-                                }),
-                        );
-
-                        for (effect, value) in &[
-                            (MedicineEffect::Appetite, medicine.appetite),
-                            (MedicineEffect::Fear, medicine.fear),
-                            (MedicineEffect::Smell, medicine.smell),
-                        ] {
-                            parent
-                                .spawn(NodeBundle {
-                                    style: Style {
-                                        flex_direction: FlexDirection::Row,
-                                        justify_content: JustifyContent::SpaceBetween,
-                                        align_items: AlignItems::Center,
-                                        gap: Size::all(P4),
+                        ))
+                        .with_children(|parent| {
+                            parent.spawn(
+                                TextBundle::from_section("Effects".to_string(), h2(&fonts))
+                                    .with_text_alignment(TextAlignment::Center)
+                                    .with_style(Style {
+                                        align_self: AlignSelf::Center,
                                         ..Default::default()
-                                    },
-                                    ..Default::default()
-                                })
-                                .with_children(|parent| {
-                                    parent.spawn(TextBundle::from_section(
-                                        effect.title(),
-                                        text(&fonts),
-                                    ));
+                                    }),
+                            );
 
-                                    parent
-                                        .spawn(NodeBundle {
-                                            style: Style {
-                                                flex_direction: FlexDirection::Row,
-                                                ..Default::default()
-                                            },
+                            for (effect, value) in &[
+                                (MedicineEffect::Appetite, medicine.appetite),
+                                (MedicineEffect::Fear, medicine.fear),
+                                (MedicineEffect::Smell, medicine.smell),
+                            ] {
+                                parent
+                                    .spawn(NodeBundle {
+                                        style: Style {
+                                            flex_direction: FlexDirection::Row,
+                                            justify_content: JustifyContent::SpaceBetween,
+                                            align_items: AlignItems::Center,
+                                            gap: Size::all(P4),
                                             ..Default::default()
-                                        })
-                                        .with_children(|parent| {
-                                            for choice in &[-1, 0, 1] {
-                                                parent
-                                                    .spawn((
-                                                        MedicineEffectButton {
-                                                            medicine_index,
-                                                            effect: *effect,
-                                                            value: *choice,
-                                                        },
-                                                        ButtonBundle {
-                                                            style: Style {
-                                                                size: Size::all(P20),
-                                                                justify_content:
-                                                                    JustifyContent::Center,
-                                                                align_items: AlignItems::Center,
+                                        },
+                                        ..Default::default()
+                                    })
+                                    .with_children(|parent| {
+                                        parent.spawn(TextBundle::from_section(
+                                            effect.dev_title(),
+                                            text(&fonts),
+                                        ));
+
+                                        parent
+                                            .spawn(NodeBundle {
+                                                style: Style {
+                                                    flex_direction: FlexDirection::Row,
+                                                    ..Default::default()
+                                                },
+                                                ..Default::default()
+                                            })
+                                            .with_children(|parent| {
+                                                for choice in &[-1, 0, 1] {
+                                                    parent
+                                                        .spawn((
+                                                            MedicineEffectButton {
+                                                                medicine_index,
+                                                                effect: *effect,
+                                                                value: *choice,
+                                                            },
+                                                            ButtonBundle {
+                                                                style: Style {
+                                                                    size: Size::all(P20),
+                                                                    justify_content:
+                                                                        JustifyContent::Center,
+                                                                    align_items: AlignItems::Center,
+                                                                    ..Default::default()
+                                                                },
+                                                                background_color: if value == choice
+                                                                {
+                                                                    BG_HIGHLIGHT.into()
+                                                                } else {
+                                                                    BG_WHITE.into()
+                                                                },
                                                                 ..Default::default()
                                                             },
-                                                            background_color: if value == choice {
-                                                                BG_HIGHLIGHT.into()
-                                                            } else {
-                                                                BG_WHITE.into()
-                                                            },
-                                                            ..Default::default()
-                                                        },
-                                                    ))
-                                                    .with_children(|parent| {
-                                                        parent.spawn(
-                                                            TextBundle::from_section(
-                                                                match choice {
-                                                                    0 => "=",
-                                                                    c if c < &0 => "↓",
-                                                                    _ => "↑",
-                                                                },
-                                                                text(&fonts),
-                                                            )
-                                                            .with_text_alignment(
-                                                                TextAlignment::Center,
-                                                            ),
-                                                        );
-                                                    });
-                                            }
-                                        });
-                                });
-                        }
-                    });
+                                                        ))
+                                                        .with_children(|parent| {
+                                                            parent.spawn(
+                                                                TextBundle::from_section(
+                                                                    match choice {
+                                                                        0 => "=",
+                                                                        c if c < &0 => "↓",
+                                                                        _ => "↑",
+                                                                    },
+                                                                    text(&fonts),
+                                                                )
+                                                                .with_text_alignment(
+                                                                    TextAlignment::Center,
+                                                                ),
+                                                            );
+                                                        });
+                                                }
+                                            });
+                                    });
+                            }
+                        });
+                }
             });
     };
 
@@ -597,7 +601,7 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
                         size: Size::all(P20),
                         ..Default::default()
                     },
-                    background_color: BG_DARK_GRAY.into(),
+                    background_color: BG_WHITE.into(),
                     ..Default::default()
                 },
             ));
@@ -1087,6 +1091,7 @@ fn setup_help(mut commands: Commands, fonts: Res<Fonts>) {
                         background_color: BG_LIGHT_GRAY.into(),
                         visibility: Visibility::Hidden,
                         z_index: ZIndex::Global(2),
+                        focus_policy: FocusPolicy::Block,
                         ..Default::default()
                     },
                 ))

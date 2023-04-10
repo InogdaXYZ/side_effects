@@ -7,9 +7,12 @@ use bevy::{
     pbr::{ClusterConfig, ClusterFarZMode},
     prelude::*,
     scene::SceneInstance,
+    window::WindowResolution,
 };
 use bevy_asset_loader::prelude::*;
-use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
+use bevy_inspector_egui::prelude::*;
+#[cfg(debug_assertions)]
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use hud::{BG_ACTION_PRIMARY, P20, P40};
 use pathfinding::{
@@ -22,13 +25,24 @@ use rand::thread_rng;
 mod hud;
 
 fn main() {
-    App::new()
-        .insert_resource(ClearColor(Color::WHITE))
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            watch_for_changes: true,
-            ..Default::default()
-        }))
-        .add_plugin(WorldInspectorPlugin::default())
+    let mut app = App::new();
+
+    app.insert_resource(ClearColor(Color::WHITE))
+        .add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    watch_for_changes: true,
+                    ..Default::default()
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        resolution: WindowResolution::new(1024., 768.),
+                        title: "No rats were harmed".to_string(),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+        )
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin {
             always_on_top: true,
@@ -89,8 +103,12 @@ fn main() {
             (set_goal, eat_food, rest)
                 .in_set(OnUpdate(AppState::InGame))
                 .in_set(OnUpdate(GameState::Experimenting)),
-        )
-        .run();
+        );
+
+    #[cfg(debug_assertions)]
+    app.add_plugin(WorldInspectorPlugin::default());
+
+    app.run();
 }
 
 #[derive(Resource, Debug, Reflect, InspectorOptions)]
@@ -424,7 +442,8 @@ pub enum MedicineEffect {
 }
 
 impl MedicineEffect {
-    fn title(&self) -> &str {
+    #[cfg(debug_assertions)]
+    fn dev_title(&self) -> &str {
         match self {
             MedicineEffect::Appetite => "Appetite",
             MedicineEffect::Fear => "Fear",

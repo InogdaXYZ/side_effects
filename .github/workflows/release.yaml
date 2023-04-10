@@ -7,9 +7,9 @@ on:
 
 env:
   # update with the name of the main binary
-  binary: side_effects
+  binary: no_rats_were_harmed
   add_binaries_to_github_release: true
-  itch_target: bardt/side-effects
+  itch_target: bardt/no-rats-were-harmed
 
 jobs:
   # Build for wasm
