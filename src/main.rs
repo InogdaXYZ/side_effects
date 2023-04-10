@@ -662,11 +662,11 @@ impl PathfindingMatrix {
         let tile_coords: Vec<(i32, i32)> = tiles
             .iter()
             .map(|transform| {
-                dx = transform.translation.x - transform.translation.x.floor();
-                dz = transform.translation.z - transform.translation.z.floor();
+                dx = transform.translation.x - transform.translation.x.round();
+                dz = transform.translation.z - transform.translation.z.round();
                 (
-                    transform.translation.x.floor() as i32,
-                    transform.translation.z.floor() as i32,
+                    transform.translation.x.round() as i32,
+                    transform.translation.z.round() as i32,
                 )
             })
             .collect::<_>();
@@ -733,6 +733,29 @@ fn test_pathfinding_coord_conversion() {
     assert_eq!(grid_coord, Some((2, 1)));
     if let Some(coord) = grid_coord {
         assert_eq!(pathfinding.translation(&coord, 0.0), translation);
+    }
+}
+
+#[test]
+fn test_pathfinding_coord_rounding() {
+    let translation = Vec3::new(0.9, 0.0, -2.1);
+    let coords: Vec<Transform> = vec![
+        Vec3::new(0.0, 0.0, -0.0),
+        Vec3::new(0.0, 0.0, -1.0),
+        Vec3::new(0.0, 0.0, -2.0),
+        Vec3::new(1.0, 0.0, -2.0),
+    ]
+    .iter()
+    .map(|coord| Transform::from_translation(*coord))
+    .collect();
+    let pathfinding = PathfindingMatrix::from_coordinates(&coords.iter().collect::<Vec<_>>());
+    let grid_coord = pathfinding.grid_coord(translation);
+    assert_eq!(grid_coord, Some((2, 1)));
+    if let Some(coord) = grid_coord {
+        assert_eq!(
+            pathfinding.translation(&coord, 0.0),
+            Vec3::new(1.0, 0.0, -2.0)
+        );
     }
 }
 
@@ -871,8 +894,7 @@ fn set_goal(
         ),
         Without<Rest>,
     >,
-    cheese: Query<&Transform, (With<Cheese>, Without<Rat>)>,
-    mouldy_cheeses: Query<&Transform, With<Mouldy>>,
+    cheese: Query<(&Transform, Option<&Mouldy>), (With<Cheese>, Without<Rat>)>,
     scare_cats: Query<&Transform, With<ScareCat>>,
     pathfinding: Res<PathfindingMatrix>,
     settings: Res<Settings>,
@@ -889,10 +911,10 @@ fn set_goal(
             .grid_coord(rat_transform.translation)
             .unwrap_or((0, 0));
 
-        let mut avoided: Vec<(usize, usize)> = mouldy_cheeses
+        let mut avoided: Vec<(usize, usize)> = cheese
             .iter()
-            .filter_map(|transform| {
-                if rat.smell > 0 {
+            .filter_map(|(transform, mouldy)| {
+                if rat.smell > 0 && mouldy.is_some() {
                     pathfinding.grid_coord(transform.translation)
                 } else {
                     None
@@ -1029,17 +1051,17 @@ fn set_goal(
             let smell_distance = 5.0 * rat.smell as f32;
             let mut paths = cheese
                 .iter()
-                .filter_map(|cheese| {
-                    pathfinding.grid_coord(cheese.translation).and_then(|goal| {
-                        let distance = rat_transform.translation.distance(cheese.translation);
-                        if distance < smell_distance {
-                            let smell_intencity = (smell_distance - distance).round() as i32;
-                            astar(
+                .filter_map(|(transform, _mouldy)| {
+                    pathfinding
+                        .grid_coord(transform.translation)
+                        .and_then(|goal| {
+                            let distance =
+                                rat_transform.translation.distance(transform.translation);
+                            let walkable_grid = pathfinding.without(&avoided).grid;
+                            let path = astar(
                                 &rat_coord,
                                 |p| {
-                                    pathfinding
-                                        .without(&avoided)
-                                        .grid
+                                    walkable_grid
                                         .neighbours(*p)
                                         .into_iter()
                                         .map(|p| (p, 1))
@@ -1047,16 +1069,18 @@ fn set_goal(
                                 },
                                 |p| pathfinding.grid.distance(*p, goal) / 3,
                                 |p| *p == goal,
-                            )
-                            .map(|(path, _cost)| (path, smell_intencity))
-                        } else {
-                            None
-                        }
-                    })
+                            );
+
+                            if distance < smell_distance {
+                                path.map(|(path, _)| (path, distance.round() as i32))
+                            } else {
+                                None
+                            }
+                        })
                 })
                 .collect::<Vec<_>>();
 
-            paths.sort_by_key(|(_, smell_intencity)| -*smell_intencity);
+            paths.sort_by_key(|(_, prio)| *prio);
 
             if let Some((path, _smell_intencity)) = paths.first() {
                 let destination = match *path.as_slice() {
@@ -1092,7 +1116,6 @@ fn eat_food(
     children: Query<&Parent, With<Collider>>,
 ) {
     for collision_event in collision_events.iter() {
-        println!("Received collision event: {:?}", collision_event);
         match collision_event {
             CollisionEvent::Started(first, second, _flags) => {
                 if let (Some(a), Some(b)) = (children.get(*first).ok(), children.get(*second).ok())
