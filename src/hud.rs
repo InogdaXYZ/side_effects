@@ -723,7 +723,7 @@ fn experiment_button(
                 ExperimentAction::Conduct => {
                     next_state.set(GameState::Experimenting);
                     button.0 = ExperimentAction::Finish;
-                    color.0 = BG_ACTION_WARNING.into();
+                    color.0 = BG_ACTION_WARNING;
                     for (parent, mut caption) in captions.iter_mut() {
                         if parent.get() == this {
                             caption.sections = vec![TextSection::new(
@@ -736,7 +736,7 @@ fn experiment_button(
                 ExperimentAction::Finish => {
                     next_state.set(GameState::Planning);
                     button.0 = ExperimentAction::Conduct;
-                    color.0 = BG_ACTION_PRIMARY.into();
+                    color.0 = BG_ACTION_PRIMARY;
                     for (parent, mut caption) in captions.iter_mut() {
                         if parent.get() == this {
                             caption.sections = vec![TextSection::new(
