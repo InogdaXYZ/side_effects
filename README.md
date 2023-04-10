@@ -33,10 +33,5 @@ Ideas by the universal field of consciousness
 
 Source code available at https://github.com/bardt/side_effects
 
-Thanks to
- "
-Bevy engine maintainers and community for
-bevy_asset_loader,
-bevy-inspector-egui,
-and bevy_rapier3d
-
+Thanks to     Mozilla for Fira Sans,
+Bevy engine maintainers and community for bevy_asset_loader, bevy-inspector-egui, and bevy_rapier3d.
