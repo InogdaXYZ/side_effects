@@ -15,7 +15,7 @@ Hints:
 Effects of one medicine can be compensated by another.
 Lab rats don’t have great vision and rely on memory and smell.
 The hungrier a rat is, the more actively it searches for food.
-Not all cheese smells well.
+Not all cheese smells good.
 Uninterested rats will generally just roam around.
 Cats are scary even when they are not real.
 
