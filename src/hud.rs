@@ -21,7 +21,9 @@ impl Plugin for HudPlugin {
                     try_again_button,
                 )
                     .in_set(OnUpdate(AppState::InGame)),
-            );
+            )
+            .add_system(setup_help.in_schedule(OnExit(AppState::Loading)))
+            .add_system(toggle_help_popup);
     }
 }
 
@@ -74,6 +76,7 @@ const ACTION_BUTTON_STYLE: Style = Style {
 
 trait TextStyleExtra {
     fn with_color(&self, color: Color) -> Self;
+    fn with_font_size(&self, font_size: f32) -> Self;
 }
 
 impl TextStyleExtra for TextStyle {
@@ -82,6 +85,14 @@ impl TextStyleExtra for TextStyle {
             color,
             font: self.font.clone_weak(),
             font_size: self.font_size,
+        }
+    }
+
+    fn with_font_size(&self, font_size: f32) -> Self {
+        Self {
+            color: self.color,
+            font: self.font.clone_weak(),
+            font_size,
         }
     }
 }
@@ -97,7 +108,7 @@ fn h1(fonts: &Fonts) -> TextStyle {
 fn h2(fonts: &Fonts) -> TextStyle {
     TextStyle {
         font: fonts.semibold.clone_weak(),
-        font_size: 15.,
+        font_size: 18.,
         color: Color::BLACK,
     }
 }
@@ -105,7 +116,7 @@ fn h2(fonts: &Fonts) -> TextStyle {
 fn text(fonts: &Fonts) -> TextStyle {
     TextStyle {
         font: fonts.regular.clone_weak(),
-        font_size: 12.,
+        font_size: 15.,
         color: Color::BLACK,
     }
 }
@@ -113,7 +124,7 @@ fn text(fonts: &Fonts) -> TextStyle {
 fn bold(fonts: &Fonts) -> TextStyle {
     TextStyle {
         font: fonts.bold.clone_weak(),
-        font_size: 12.,
+        font_size: 15.,
         color: Color::BLACK,
     }
 }
@@ -121,7 +132,7 @@ fn bold(fonts: &Fonts) -> TextStyle {
 fn button_caption(fonts: &Fonts) -> TextStyle {
     TextStyle {
         font: fonts.bold.clone_weak(),
-        font_size: 12.,
+        font_size: 15.,
         color: Color::WHITE,
     }
 }
@@ -1016,6 +1027,145 @@ fn checkbox_update(
                     }
                 }
             }
+        }
+    }
+}
+
+/***********************************************/
+/*    ##     ## ######## ##       ########     */
+/*    ##     ## ##       ##       ##     ##    */
+/*    ##     ## ##       ##       ##     ##    */
+/*    ######### ######   ##       ########     */
+/*    ##     ## ##       ##       ##           */
+/*    ##     ## ##       ##       ##           */
+/*    ##     ## ######## ######## ##           */
+/***********************************************/
+
+#[derive(Component, Debug)]
+struct HelpPopup;
+
+#[derive(Component, Debug)]
+struct HelpButton;
+
+fn setup_help(mut commands: Commands, fonts: Res<Fonts>) {
+    commands
+        .spawn((
+            HelpButton,
+            ButtonBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    position: UiRect {
+                        right: P20,
+                        bottom: P20,
+                        ..Default::default()
+                    },
+                    padding: UiRect::new(P13, P13, P8, P8),
+                    ..Default::default()
+                },
+                background_color: BG_ACTION_PRIMARY.into(),
+                ..Default::default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "?",
+                button_caption(&fonts).with_font_size(h1(&fonts).font_size),
+            ));
+        });
+
+    commands
+        .spawn((
+            HelpPopup,
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    position: UiRect {
+                        left: Val::Auto,
+                        right: Val::Auto,
+                        top: P20,
+                        bottom: P20,
+                    },
+                    size: Size::width(Val::Px(400.)),
+                    margin: UiRect::new(Val::Auto, Val::Auto, P20, P20),
+                    padding: UiRect::all(P20),
+                    gap: Size::all(P8),
+                    flex_direction: FlexDirection::Column,
+                    ..Default::default()
+                },
+                background_color: BG_LIGHT_GRAY.into(),
+                visibility: Visibility::Hidden,
+                z_index: ZIndex::Global(2),
+                ..Default::default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section("Hints", h1(&fonts)));
+            parent.spawn(TextBundle::from_section(
+                "Effects of one medicine can be compensated by another.",
+                text(&fonts),
+            ));
+            parent.spawn(TextBundle::from_section(
+                "Lab rats don’t have great vision and rely on memory and smell.",
+                text(&fonts),
+            ));
+            parent.spawn(TextBundle::from_section(
+                "The hungrier a rat is, the more actively it searches for food.",
+                text(&fonts),
+            ));
+            parent.spawn(TextBundle::from_section(
+                "Not all cheese smells well.",
+                text(&fonts),
+            ));
+            parent.spawn(TextBundle::from_section(
+                "Uninterested rats will generally just roam around.",
+                text(&fonts),
+            ));
+            parent.spawn(TextBundle::from_section(
+                "Cats are scary even when they are not real.",
+                text(&fonts),
+            ));
+            parent.spawn(TextBundle::from_section("", text(&fonts)));
+            parent.spawn(TextBundle::from_section("", text(&fonts)));
+
+            parent.spawn(TextBundle::from_section("Credits", h1(&fonts)));
+            parent.spawn(TextBundle::from_section(
+                "Built with Blender, Bevy engine, and lots of joy.",
+                text(&fonts),
+            ));
+            parent.spawn(TextBundle::from_section("", text(&fonts)));
+            parent.spawn(TextBundle::from_section(
+                "Visual design and assets by Christina",
+                text(&fonts),
+            ));
+            parent.spawn(TextBundle::from_section(
+                "Code and direction by Roman",
+                text(&fonts),
+            ));
+            parent.spawn(TextBundle::from_section(
+                "Ideas by the universal field of consciousness",
+                text(&fonts),
+            ));
+        });
+}
+
+fn toggle_help_popup(
+    mut interactions: Query<&mut Interaction, With<HelpButton>>,
+    mut help_popups: Query<&mut Visibility, (With<HelpPopup>, Without<HelpButton>)>,
+) {
+    for mut interaction in interactions.iter_mut() {
+        match *interaction {
+            Interaction::Clicked => {
+                *interaction = Interaction::None;
+                for mut visibility in help_popups.iter_mut() {
+                    *visibility = if *visibility == Visibility::Hidden {
+                        Visibility::Visible
+                    } else {
+                        Visibility::Hidden
+                    };
+                }
+            }
+            Interaction::Hovered => {}
+            Interaction::None => {}
         }
     }
 }
