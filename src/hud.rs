@@ -47,34 +47,34 @@ enum ExperimentAction {
 #[derive(Component)]
 struct ExperimentButtonCaption;
 
-const BG_HIGHLIGHT: Color = Color::hsla(195., 0.86, 0.86, 1.);
-const BG_DARK_GRAY: Color = Color::hsla(0., 0.0, 0.73, 1.);
-const BG_LIGHT_GRAY: Color = Color::hsla(0., 0., 0.92, 1.);
-const BG_WHITE: Color = Color::WHITE;
+pub const BG_HIGHLIGHT: Color = Color::hsla(195., 0.86, 0.86, 1.);
+pub const BG_DARK_GRAY: Color = Color::hsla(0., 0.0, 0.73, 1.);
+pub const BG_LIGHT_GRAY: Color = Color::hsla(0., 0., 0.92, 1.);
+pub const BG_WHITE: Color = Color::WHITE;
 
-const BG_ACTION_WARNING: Color = Color::hsla(18.49, 0.82, 0.65, 1.);
-const BG_ACTION_PRIMARY: Color = Color::hsla(194.05, 0.72, 0.70, 1.);
+pub const BG_ACTION_WARNING: Color = Color::hsla(18.49, 0.82, 0.65, 1.);
+pub const BG_ACTION_PRIMARY: Color = Color::hsla(194.05, 0.72, 0.70, 1.);
 
-const FG_FAILURE: Color = Color::hsla(18.49, 0.82, 0.65, 1.);
-const FG_SUCCESS: Color = Color::hsla(145., 0.63, 0.42, 1.);
+pub const FG_FAILURE: Color = Color::hsla(18.49, 0.82, 0.65, 1.);
+pub const FG_SUCCESS: Color = Color::hsla(145., 0.63, 0.42, 1.);
 
-const P2: Val = Val::Px(2.);
-const P4: Val = Val::Px(4.);
-const P8: Val = Val::Px(8.);
-const P10: Val = Val::Px(10.);
-const P13: Val = Val::Px(13.);
-const P20: Val = Val::Px(20.);
-const P30: Val = Val::Px(30.);
-const P40: Val = Val::Px(40.);
+pub const P2: Val = Val::Px(2.);
+pub const P4: Val = Val::Px(4.);
+pub const P8: Val = Val::Px(8.);
+pub const P10: Val = Val::Px(10.);
+pub const P13: Val = Val::Px(13.);
+pub const P20: Val = Val::Px(20.);
+pub const P30: Val = Val::Px(30.);
+pub const P40: Val = Val::Px(40.);
 
-const ACTION_BUTTON_STYLE: Style = Style {
+pub const ACTION_BUTTON_STYLE: Style = Style {
     padding: UiRect::new(P30, P30, P13, P13),
-    min_size: Size::width(Val::Px(170.)),
+    min_size: Size::width(Val::Px(180.)),
     justify_content: JustifyContent::Center,
     ..Style::DEFAULT
 };
 
-trait TextStyleExtra {
+pub trait TextStyleExtra {
     fn with_color(&self, color: Color) -> Self;
     fn with_font_size(&self, font_size: f32) -> Self;
 }
@@ -97,7 +97,7 @@ impl TextStyleExtra for TextStyle {
     }
 }
 
-fn h1(fonts: &Fonts) -> TextStyle {
+pub fn h1(fonts: &Fonts) -> TextStyle {
     TextStyle {
         font: fonts.bold.clone_weak(),
         font_size: 20.,
@@ -105,7 +105,7 @@ fn h1(fonts: &Fonts) -> TextStyle {
     }
 }
 
-fn h2(fonts: &Fonts) -> TextStyle {
+pub fn h2(fonts: &Fonts) -> TextStyle {
     TextStyle {
         font: fonts.semibold.clone_weak(),
         font_size: 18.,
@@ -113,7 +113,7 @@ fn h2(fonts: &Fonts) -> TextStyle {
     }
 }
 
-fn text(fonts: &Fonts) -> TextStyle {
+pub fn text(fonts: &Fonts) -> TextStyle {
     TextStyle {
         font: fonts.regular.clone_weak(),
         font_size: 15.,
@@ -121,7 +121,7 @@ fn text(fonts: &Fonts) -> TextStyle {
     }
 }
 
-fn bold(fonts: &Fonts) -> TextStyle {
+pub fn bold(fonts: &Fonts) -> TextStyle {
     TextStyle {
         font: fonts.bold.clone_weak(),
         font_size: 15.,
@@ -129,7 +129,7 @@ fn bold(fonts: &Fonts) -> TextStyle {
     }
 }
 
-fn button_caption(fonts: &Fonts) -> TextStyle {
+pub fn button_caption(fonts: &Fonts) -> TextStyle {
     TextStyle {
         font: fonts.bold.clone_weak(),
         font_size: 15.,
@@ -153,6 +153,7 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
             .spawn(NodeBundle {
                 style: Style {
                     flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Stretch,
                     gap: Size::all(P10),
                     ..Default::default()
                 },
@@ -167,11 +168,6 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
                         NodeBundle {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
-
-                                max_size: Size {
-                                    width: Val::Px(208.),
-                                    height: Val::Auto,
-                                },
                                 padding: UiRect::new(P20, P20, P8, P8),
                                 gap: Size::all(P4),
                                 ..Default::default()
@@ -455,7 +451,7 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
                 parent.spawn(TextBundle::from_sections(vec![
                     TextSection::new("Note: ", bold(&fonts)),
                     TextSection::new(
-                        "Make sure you’ve discovered all side effects of each medicine",
+                        "Make sure you’ve discovered all side effects of each medicine\n",
                         text(&fonts),
                     ),
                     TextSection::new(
@@ -530,54 +526,16 @@ fn setup(mut commands: Commands, fonts: Res<Fonts>, medicines: Res<Medicines>) {
                     .spawn((
                         ExperimentButton(ExperimentAction::Conduct),
                         ButtonBundle {
-                            background_color: Color::DARK_GRAY.into(),
-                            style: Style {
-                                padding: UiRect::all(Val::Px(10.)),
-                                ..Default::default()
-                            },
+                            style: ACTION_BUTTON_STYLE,
+                            background_color: BG_ACTION_PRIMARY.into(),
                             ..Default::default()
                         },
                     ))
                     .with_children(|parent| {
                         parent.spawn((
                             ExperimentButtonCaption,
-                            TextBundle::from_section(
-                                "Conduct experiment",
-                                TextStyle {
-                                    font: fonts.regular.clone_weak(),
-                                    font_size: 30.0,
-                                    color: Color::WHITE,
-                                },
-                            )
-                            .with_text_alignment(TextAlignment::Center),
-                        ));
-                    });
-
-                parent
-                    .spawn((
-                        ExperimentButton(ExperimentAction::Finish),
-                        ButtonBundle {
-                            background_color: Color::DARK_GRAY.into(),
-                            style: Style {
-                                padding: UiRect::all(Val::Px(10.)),
-                                ..Default::default()
-                            },
-                            visibility: Visibility::Hidden,
-                            ..Default::default()
-                        },
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn((
-                            ExperimentButtonCaption,
-                            TextBundle::from_section(
-                                "Finish experiment",
-                                TextStyle {
-                                    font: fonts.regular.clone_weak(),
-                                    font_size: 30.0,
-                                    color: Color::WHITE,
-                                },
-                            )
-                            .with_text_alignment(TextAlignment::Center),
+                            TextBundle::from_section("Conduct experiment", button_caption(&fonts))
+                                .with_text_alignment(TextAlignment::Center),
                         ));
                     });
             });
@@ -739,25 +697,52 @@ fn medicine_test_togle_button(
 }
 
 fn experiment_button(
-    mut interaction_query: Query<(Entity, &ExperimentButton, &Interaction), Changed<Interaction>>,
-    mut buttons: Query<(Entity, &mut Visibility), With<ExperimentButton>>,
+    mut interaction_query: Query<
+        (
+            Entity,
+            &mut ExperimentButton,
+            &mut BackgroundColor,
+            &Interaction,
+        ),
+        Changed<Interaction>,
+    >,
+    mut captions: Query<
+        (&Parent, &mut Text),
+        (With<ExperimentButtonCaption>, Without<ExperimentButton>),
+    >,
     mut next_state: ResMut<NextState<GameState>>,
+    fonts: Res<Fonts>,
 ) {
-    for (this, button, interaction) in interaction_query.iter_mut() {
+    for (this, mut button, mut color, interaction) in interaction_query.iter_mut() {
         match interaction {
-            Interaction::Clicked => {
-                for (entity, mut visibility) in buttons.iter_mut() {
-                    *visibility = if entity == this {
-                        Visibility::Hidden
-                    } else {
-                        Visibility::Visible
+            Interaction::Clicked => match button.0 {
+                ExperimentAction::Conduct => {
+                    next_state.set(GameState::Experimenting);
+                    button.0 = ExperimentAction::Finish;
+                    color.0 = BG_ACTION_WARNING.into();
+                    for (parent, mut caption) in captions.iter_mut() {
+                        if parent.get() == this {
+                            caption.sections = vec![TextSection::new(
+                                "Finish experiment",
+                                button_caption(&fonts),
+                            )];
+                        }
                     }
                 }
-                match button.0 {
-                    ExperimentAction::Conduct => next_state.set(GameState::Experimenting),
-                    ExperimentAction::Finish => next_state.set(GameState::Planning),
+                ExperimentAction::Finish => {
+                    next_state.set(GameState::Planning);
+                    button.0 = ExperimentAction::Conduct;
+                    color.0 = BG_ACTION_PRIMARY.into();
+                    for (parent, mut caption) in captions.iter_mut() {
+                        if parent.get() == this {
+                            caption.sections = vec![TextSection::new(
+                                "Conduct experiment",
+                                button_caption(&fonts),
+                            )];
+                        }
+                    }
                 }
-            }
+            },
             Interaction::Hovered => {}
             Interaction::None => {}
         }
@@ -1049,102 +1034,112 @@ struct HelpButton;
 
 fn setup_help(mut commands: Commands, fonts: Res<Fonts>) {
     commands
-        .spawn((
-            HelpButton,
-            ButtonBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    position: UiRect {
-                        right: P20,
-                        bottom: P20,
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    top: Val::Percent(0.0),
+                    right: Val::Percent(0.0),
+                    bottom: Val::Percent(0.0),
+                    ..Default::default()
+                },
+                flex_direction: FlexDirection::RowReverse,
+                justify_content: JustifyContent::Start,
+                align_items: AlignItems::End,
+                padding: UiRect::all(P20),
+                gap: Size::all(P20),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    HelpButton,
+                    ButtonBundle {
+                        style: Style {
+                            padding: UiRect::new(P13, P13, P8, P8),
+                            ..Default::default()
+                        },
+                        background_color: BG_ACTION_PRIMARY.into(),
                         ..Default::default()
                     },
-                    padding: UiRect::new(P13, P13, P8, P8),
-                    ..Default::default()
-                },
-                background_color: BG_ACTION_PRIMARY.into(),
-                ..Default::default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "?",
-                button_caption(&fonts).with_font_size(h1(&fonts).font_size),
-            ));
-        });
+                ))
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "?",
+                        button_caption(&fonts).with_font_size(h1(&fonts).font_size),
+                    ));
+                });
 
-    commands
-        .spawn((
-            HelpPopup,
-            NodeBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    position: UiRect {
-                        left: Val::Auto,
-                        right: Val::Auto,
-                        top: P20,
-                        bottom: P20,
+            parent
+                .spawn((
+                    HelpPopup,
+                    NodeBundle {
+                        style: Style {
+                            size: Size::width(Val::Px(400.)),
+                            padding: UiRect::all(P20),
+                            gap: Size::all(P8),
+                            flex_direction: FlexDirection::Column,
+                            align_self: AlignSelf::Stretch,
+                            ..Default::default()
+                        },
+                        background_color: BG_LIGHT_GRAY.into(),
+                        visibility: Visibility::Hidden,
+                        z_index: ZIndex::Global(2),
+                        ..Default::default()
                     },
-                    size: Size::width(Val::Px(400.)),
-                    margin: UiRect::new(Val::Auto, Val::Auto, P20, P20),
-                    padding: UiRect::all(P20),
-                    gap: Size::all(P8),
-                    flex_direction: FlexDirection::Column,
-                    ..Default::default()
-                },
-                background_color: BG_LIGHT_GRAY.into(),
-                visibility: Visibility::Hidden,
-                z_index: ZIndex::Global(2),
-                ..Default::default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section("Hints", h1(&fonts)));
-            parent.spawn(TextBundle::from_section(
-                "Effects of one medicine can be compensated by another.",
-                text(&fonts),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Lab rats don’t have great vision and rely on memory and smell.",
-                text(&fonts),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "The hungrier a rat is, the more actively it searches for food.",
-                text(&fonts),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Not all cheese smells well.",
-                text(&fonts),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Uninterested rats will generally just roam around.",
-                text(&fonts),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Cats are scary even when they are not real.",
-                text(&fonts),
-            ));
-            parent.spawn(TextBundle::from_section("", text(&fonts)));
-            parent.spawn(TextBundle::from_section("", text(&fonts)));
+                ))
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section("Hints", h1(&fonts)));
+                    parent.spawn(TextBundle::from_section(
+                        "Effects of one medicine can be compensated by another.",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section(
+                        "Lab rats don’t have great vision and rely on memory and smell.",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section(
+                        "The hungrier a rat is, the more actively it searches for food.",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section(
+                        "Not all cheese smells well.",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section(
+                        "Uninterested rats will generally just roam around.",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section(
+                        "Cats are scary even when they are not real.",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section("", text(&fonts)));
+                    parent.spawn(TextBundle::from_section("", text(&fonts)));
 
-            parent.spawn(TextBundle::from_section("Credits", h1(&fonts)));
-            parent.spawn(TextBundle::from_section(
-                "Built with Blender, Bevy engine, and lots of joy.",
-                text(&fonts),
-            ));
-            parent.spawn(TextBundle::from_section("", text(&fonts)));
-            parent.spawn(TextBundle::from_section(
-                "Visual design and assets by Christina",
-                text(&fonts),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Code and direction by Roman",
-                text(&fonts),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Ideas by the universal field of consciousness",
-                text(&fonts),
-            ));
+                    parent.spawn(TextBundle::from_section("Credits", h1(&fonts)));
+                    parent.spawn(TextBundle::from_section(
+                        "Built with Blender, Bevy engine, and lots of joy.",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section("", text(&fonts)));
+                    parent.spawn(TextBundle::from_section(
+                        "Visual design and assets by Christina",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section(
+                        "Code and direction by Roman",
+                        text(&fonts),
+                    ));
+                    parent.spawn(TextBundle::from_section(
+                        "Ideas by the universal field of consciousness",
+                        text(&fonts),
+                    ));
+
+                    // FiraSans font from Mozilla  "
+                });
         });
 }
 

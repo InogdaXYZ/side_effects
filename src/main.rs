@@ -11,6 +11,7 @@ use bevy::{
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::{prelude::*, quick::WorldInspectorPlugin};
 use bevy_rapier3d::prelude::*;
+use hud::{BG_ACTION_PRIMARY, P20, P40};
 use pathfinding::{
     num_traits::{Pow, ToPrimitive},
     prelude::*,
@@ -228,13 +229,14 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<Fonts>) {
                 style: Style {
                     position_type: PositionType::Absolute,
                     position: UiRect {
-                        top: Val::Px(50.0),
-                        right: Val::Px(50.0),
-                        bottom: Val::Px(50.0),
+                        top: P40,
+                        right: P20,
                         ..default()
                     },
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::End,
+                    gap: Size::all(P20),
                     ..default()
                 },
                 ..Default::default()
@@ -245,6 +247,7 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<Fonts>) {
                 .spawn(NodeBundle {
                     style: Style {
                         flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::End,
                         ..Default::default()
                     },
                     ..Default::default()
@@ -252,10 +255,10 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<Fonts>) {
                 .with_children(|parent| {
                     parent.spawn(
                         TextBundle::from_section(
-                            "Side effects",
+                            "No rats were harmed",
                             TextStyle {
-                                font: fonts.regular.clone_weak(),
-                                font_size: 100.0,
+                                font: fonts.bold.clone_weak(),
+                                font_size: 38.0,
                                 color: Color::BLACK,
                             },
                         ) // Set the alignment of the Text
@@ -264,86 +267,34 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<Fonts>) {
 
                     parent.spawn(
                         TextBundle::from_section(
-                            "a game in which you conduct experiments\nto figure out side effects of new medicine",
-                            TextStyle {
-                                font: fonts.regular.clone_weak(),
-                                font_size: 30.0,
-                                color: Color::BLACK,
-                            },
-                        ) // Set the alignment of the Text
-                        .with_text_alignment(TextAlignment::Center),
-                    );
-
-                    parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                justify_content: JustifyContent::Center,
-                                padding: UiRect::all(Val::Px(20.)),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        })
-                        .with_children(|parent| {
-                            parent
-                                .spawn((
-                                    StartButton,
-                                    ButtonBundle {
-                                        background_color: Color::DARK_GRAY.into(),
-                                        style: Style{
-                                            padding: UiRect::all(Val::Px(10.)),
-                                            ..Default::default()
-                                        },
-                                        ..Default::default()
-                                    },
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn(
-                                        TextBundle::from_section(
-                                            "Start",
-                                            TextStyle {
-                                                font: fonts.regular.clone_weak(),
-                                                font_size: 30.0,
-                                                color: Color::WHITE,
-                                            },
-                                        ) // Set the alignment of the Text
-                                        .with_text_alignment(TextAlignment::Center),
-                                    );
-                                });
-                        });
-                });
-
-            parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Column,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .with_children(|parent| {
-                    parent.spawn(
-                        // Create a TextBundle that has a Text with a single section.
-                        TextBundle::from_section(
-                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                            "by Roman and Christina",
-                            TextStyle {
-                                font: fonts.regular.clone_weak(),
-                                font_size: 30.0,
-                                color: Color::BLACK,
-                            },
-                        ) // Set the alignment of the Text
-                        .with_text_alignment(TextAlignment::Center),
-                    );
-
-                    parent.spawn(
-                        // Create a TextBundle that has a Text with a single section.
-                        TextBundle::from_section(
-                            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                            "built in Bevy engine; FiraSans font from Mozilla  ",
+                            "a game about observation and cheese",
                             TextStyle {
                                 font: fonts.regular.clone_weak(),
                                 font_size: 20.0,
                                 color: Color::BLACK,
+                            },
+                        ) // Set the alignment of the Text
+                        .with_text_alignment(TextAlignment::Center),
+                    );
+                });
+
+            parent
+                .spawn((
+                    StartButton,
+                    ButtonBundle {
+                        style: hud::ACTION_BUTTON_STYLE,
+                        background_color: BG_ACTION_PRIMARY.into(),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|parent| {
+                    parent.spawn(
+                        TextBundle::from_section(
+                            "Start",
+                            TextStyle {
+                                font: fonts.regular.clone_weak(),
+                                font_size: 30.0,
+                                color: Color::WHITE,
                             },
                         ) // Set the alignment of the Text
                         .with_text_alignment(TextAlignment::Center),

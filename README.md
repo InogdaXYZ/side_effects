@@ -1,3 +1,5 @@
-# Side Effects
+# No rats were harmed
 
-Game for Bevy Jam 3.
+A game about observation and cheese.
+
+Build for Bevy Jam 3.
