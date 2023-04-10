@@ -9,3 +9,26 @@ Welcome to "No Rats Were Harmed," the puzzle game where you play as a lab resear
 Test your problem-solving skills while keeping your conscience clear. Disclaimer: only one experiment is available at the moment.
 
 No rats were harmed in the making of this game.
+
+Hints:
+
+Effects of one medicine can be compensated by another.
+Lab rats don’t have great vision and rely on memory and smell.
+The hungrier a rat is, the more actively it searches for food.
+Not all cheese smells well.
+Uninterested rats will generally just roam around.
+Cats are scary even when they are not real.
+
+Credits:
+
+Built with Blender, Bevy engine, and lots of joy
+
+Visual design and assets by Christina
+Code and direction by Roman
+Ideas by the universal field of consciousness
+
+
+
+Fira Sans font by Mozilla
+Bevy
+[other libraries]
