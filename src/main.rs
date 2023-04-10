@@ -405,9 +405,9 @@ pub struct Report {
 impl Report {
     fn mark_effect(&mut self, effect: &MedicineEffect, value: i32) {
         match effect {
-            MedicineEffect::Appetite => self.appetite += value,
-            MedicineEffect::Smell => self.smell += value,
-            MedicineEffect::Fear => self.fear += value,
+            MedicineEffect::Appetite => self.appetite = value,
+            MedicineEffect::Smell => self.smell = value,
+            MedicineEffect::Fear => self.fear = value,
         }
     }
 }

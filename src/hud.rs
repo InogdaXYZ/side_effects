@@ -761,26 +761,36 @@ struct ReportEffectCheckbox {
 }
 
 fn report_effect_checkbox(
-    mut interaction_query: Query<
-        (&Interaction, &mut Checkbox, &ReportEffectCheckbox),
-        Changed<Interaction>,
-    >,
+    interaction_query: Query<(Entity, &Interaction, &ReportEffectCheckbox), Changed<Interaction>>,
     mut medicines: ResMut<Medicines>,
+    mut checkboxes: Query<(Entity, &ReportEffectCheckbox, &mut Checkbox)>,
 ) {
-    for (interaction, mut checkbox, report_effect) in interaction_query.iter_mut() {
+    for (this, interaction, this_effect) in interaction_query.iter() {
         match interaction {
             Interaction::Clicked => {
-                checkbox.checked = !checkbox.checked;
-                medicines.0[report_effect.medicine_index]
-                    .report
-                    .mark_effect(
-                        &report_effect.effect,
-                        if checkbox.checked {
-                            report_effect.value
-                        } else {
-                            -report_effect.value
-                        },
-                    );
+                let mut new_checked = false;
+                for (other, _other_effect, mut checkbox) in checkboxes.iter_mut() {
+                    if other == this {
+                        new_checked = !checkbox.checked;
+                        checkbox.checked = new_checked;
+                    }
+                }
+
+                if new_checked {
+                    for (other, other_effect, mut checkbox) in checkboxes.iter_mut() {
+                        if other_effect.effect == this_effect.effect
+                            && other_effect.medicine_index == this_effect.medicine_index
+                            && other != this
+                        {
+                            checkbox.checked = false;
+                        }
+                    }
+                }
+
+                medicines.0[this_effect.medicine_index].report.mark_effect(
+                    &this_effect.effect,
+                    if new_checked { this_effect.value } else { 0 },
+                );
             }
             Interaction::Hovered => {}
             Interaction::None => {}
