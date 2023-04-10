@@ -1155,7 +1155,7 @@ fn setup_help(mut commands: Commands, fonts: Res<Fonts>) {
                     parent.spawn(TextBundle::from_section(
                         "Test your problem-solving skills while keeping your conscience clear. Disclaimer: only one experiment is available at the moment.",
                         text(&fonts),
-                    ).with_style(p_style.clone()));
+                    ).with_style(p_style));
                     parent.spawn(TextBundle::from_section(
                         "No rats were harmed in the making of this game.",
                         text(&fonts),
