@@ -52,6 +52,7 @@ fn main() {
         .register_type::<Settings>()
         .init_resource::<Settings>()
         .init_resource::<Medicines>()
+        .init_resource::<Levels>()
         .add_state::<AppState>()
         .add_state::<GameState>()
         .add_plugin(hud::HudPlugin)
@@ -165,6 +166,30 @@ pub struct Fonts {
 fn cleanup<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
     for t in query.iter() {
         commands.entity(t).despawn_recursive();
+    }
+}
+
+#[derive(Resource)]
+struct Levels(Vec<Level>);
+
+#[derive(Component, Debug)]
+struct Level {
+    display_name: String,
+    blender_name: String,
+}
+
+impl Level {
+    fn new(blender_name: &str, display_name: &str) -> Self {
+        Self {
+            blender_name: blender_name.to_string(),
+            display_name: display_name.to_string(),
+        }
+    }
+}
+
+impl Default for Levels {
+    fn default() -> Self {
+        Self(vec![Level::new("level1", "Level 1")])
     }
 }
 
@@ -321,16 +346,23 @@ fn setup_title_screen(mut commands: Commands, fonts: Res<Fonts>) {
         });
 }
 
-fn spawn_scene(mut commands: Commands, my: Option<Res<MyAssets>>, assets_gltf: Res<Assets<Gltf>>) {
+fn spawn_scene(
+    mut commands: Commands,
+    my: Option<Res<MyAssets>>,
+    assets_gltf: Res<Assets<Gltf>>,
+    levels: Res<Levels>,
+) {
     if let Some(my) = my {
         if let Some(gltf) = assets_gltf.get(&my.main_gltf) {
-            commands.spawn((
-                Name::new("Level"),
-                SceneBundle {
-                    scene: gltf.named_scenes["level1"].clone(),
-                    ..Default::default()
-                },
-            ));
+            if let Some(first_level) = levels.0.first() {
+                commands.spawn((
+                    Name::new(first_level.display_name.clone()),
+                    SceneBundle {
+                        scene: gltf.named_scenes[&first_level.blender_name].clone(),
+                        ..Default::default()
+                    },
+                ));
+            }
         }
     }
 }
