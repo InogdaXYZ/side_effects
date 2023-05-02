@@ -31,7 +31,7 @@ Visual design and assets by Christina K.
 Code and direction by Roman Bardt
 Ideas by the universal field of consciousness
 
-Source code available at https://github.com/bardt/side_effects
+Source code available at https://github.com/InogdaXYZ/side_effects
 
-Thanks to     Mozilla for Fira Sans,
+Thanks to Mozilla for Fira Sans,
 Bevy engine maintainers and community for bevy_asset_loader, bevy-inspector-egui, and bevy_rapier3d.
